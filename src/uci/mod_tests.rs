@@ -34,8 +34,6 @@ fn roundtrip_response(resp: UciResponse) {
     assert_eq!(resp, parsed);
 }
 
-// UciRequest roundtrips
-
 #[test]
 fn request_uci() {
     roundtrip_request(UciRequest::Uci);
@@ -77,6 +75,14 @@ fn request_setoption_multiword_name() {
     roundtrip_request(UciRequest::SetOption {
         name: "Clear Hash".to_string(),
         value: None,
+    });
+}
+
+#[test]
+fn request_setoption_multiword_value() {
+    roundtrip_request(UciRequest::SetOption {
+        name: "NalimovPath".to_string(),
+        value: Some("c:\\tb\\4 c:\\tb\\5".to_string()),
     });
 }
 
@@ -135,6 +141,42 @@ fn request_position_fen_with_moves() {
             sq(File::A, Rank::R7),
             sq(File::A, Rank::R8),
             Promotion::Queen,
+        )],
+    });
+}
+
+#[test]
+fn request_position_promotion_rook() {
+    roundtrip_request(UciRequest::Position {
+        start: PositionSpec::StartPos,
+        moves: vec![mvp(
+            sq(File::A, Rank::R7),
+            sq(File::A, Rank::R8),
+            Promotion::Rook,
+        )],
+    });
+}
+
+#[test]
+fn request_position_promotion_bishop() {
+    roundtrip_request(UciRequest::Position {
+        start: PositionSpec::StartPos,
+        moves: vec![mvp(
+            sq(File::A, Rank::R7),
+            sq(File::A, Rank::R8),
+            Promotion::Bishop,
+        )],
+    });
+}
+
+#[test]
+fn request_position_promotion_knight() {
+    roundtrip_request(UciRequest::Position {
+        start: PositionSpec::StartPos,
+        moves: vec![mvp(
+            sq(File::A, Rank::R7),
+            sq(File::A, Rank::R8),
+            Promotion::Knight,
         )],
     });
 }
@@ -200,11 +242,35 @@ fn request_go_time_control() {
 }
 
 #[test]
+fn request_go_time_control_partial() {
+    roundtrip_request(UciRequest::Go(GoParams {
+        searchmoves: vec![],
+        ponder: false,
+        limit: SearchLimit::TimeControl(TimeControl {
+            wtime: Some(60000),
+            btime: Some(60000),
+            winc: None,
+            binc: None,
+            movestogo: None,
+        }),
+    }));
+}
+
+#[test]
 fn request_go_ponder() {
     roundtrip_request(UciRequest::Go(GoParams {
         searchmoves: vec![],
         ponder: true,
         limit: SearchLimit::Infinite,
+    }));
+}
+
+#[test]
+fn request_go_ponder_with_depth() {
+    roundtrip_request(UciRequest::Go(GoParams {
+        searchmoves: vec![],
+        ponder: true,
+        limit: SearchLimit::Depth(8),
     }));
 }
 
@@ -234,8 +300,6 @@ fn request_ponderhit() {
 fn request_quit() {
     roundtrip_request(UciRequest::Quit);
 }
-
-// UciResponse roundtrips
 
 #[test]
 fn response_id_name() {
@@ -276,12 +340,48 @@ fn response_bestmove_with_ponder() {
 }
 
 #[test]
-fn response_bestmove_promotion() {
+fn response_bestmove_promotion_queen() {
     roundtrip_response(UciResponse::BestMove {
         mov: mvp(
             sq(File::A, Rank::R7),
             sq(File::A, Rank::R8),
             Promotion::Queen,
+        ),
+        ponder: None,
+    });
+}
+
+#[test]
+fn response_bestmove_promotion_rook() {
+    roundtrip_response(UciResponse::BestMove {
+        mov: mvp(
+            sq(File::A, Rank::R7),
+            sq(File::A, Rank::R8),
+            Promotion::Rook,
+        ),
+        ponder: None,
+    });
+}
+
+#[test]
+fn response_bestmove_promotion_bishop() {
+    roundtrip_response(UciResponse::BestMove {
+        mov: mvp(
+            sq(File::A, Rank::R7),
+            sq(File::A, Rank::R8),
+            Promotion::Bishop,
+        ),
+        ponder: None,
+    });
+}
+
+#[test]
+fn response_bestmove_promotion_knight() {
+    roundtrip_response(UciResponse::BestMove {
+        mov: mvp(
+            sq(File::A, Rank::R7),
+            sq(File::A, Rank::R8),
+            Promotion::Knight,
         ),
         ponder: None,
     });
@@ -471,6 +571,28 @@ fn response_info_currline_with_cpu() {
                 mv(sq(File::E, Rank::R2), sq(File::E, Rank::R4)),
                 mv(sq(File::E, Rank::R7), sq(File::E, Rank::R5)),
             ],
+        }),
+        ..InfoFields::default()
+    }));
+}
+
+#[test]
+fn response_info_currline_cpu_no_moves() {
+    roundtrip_response(UciResponse::Info(InfoFields {
+        currline: Some(CurrLine {
+            cpu: Some(2),
+            moves: vec![],
+        }),
+        ..InfoFields::default()
+    }));
+}
+
+#[test]
+fn response_info_currline_empty() {
+    roundtrip_response(UciResponse::Info(InfoFields {
+        currline: Some(CurrLine {
+            cpu: None,
+            moves: vec![],
         }),
         ..InfoFields::default()
     }));

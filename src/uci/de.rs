@@ -9,273 +9,7 @@ use nom::{
     sequence::{pair, preceded},
 };
 
-impl From<&UciResponse> for String {
-    fn from(resp: &UciResponse) -> String {
-        fmt_response(resp)
-    }
-}
-
-impl From<&UciRequest> for String {
-    fn from(req: &UciRequest) -> String {
-        format_request(req)
-    }
-}
-
-impl TryFrom<&str> for UciRequest {
-    type Error = ();
-    fn try_from(s: &str) -> Result<Self, ()> {
-        parse_request(s).ok_or(())
-    }
-}
-
-impl TryFrom<&str> for UciResponse {
-    type Error = ();
-    fn try_from(s: &str) -> Result<Self, ()> {
-        parse_response(s).ok_or(())
-    }
-}
-
-// Serialization
-
-pub fn fmt_response(resp: &UciResponse) -> String {
-    match resp {
-        UciResponse::IdName(name) => format!("id name {name}"),
-        UciResponse::IdAuthor(author) => format!("id author {author}"),
-        UciResponse::UciOk => "uciok".to_string(),
-        UciResponse::ReadyOk => "readyok".to_string(),
-        UciResponse::BestMove { mov, ponder } => {
-            let mut s = format!("bestmove {}", fmt_move(*mov));
-            if let Some(p) = ponder {
-                s.push_str(&format!(" ponder {}", fmt_move(*p)));
-            }
-            s
-        }
-        UciResponse::CopyProtection(status) => {
-            format!("copyprotection {}", fmt_check_status(status))
-        }
-        UciResponse::Registration(status) => {
-            format!("registration {}", fmt_check_status(status))
-        }
-        UciResponse::Info(f) => fmt_info(f),
-        UciResponse::Option { name, option_type } => fmt_option(name, option_type),
-    }
-}
-
-fn fmt_move(m: UciMove) -> String {
-    let file = |f| match f {
-        File::A => 'a',
-        File::B => 'b',
-        File::C => 'c',
-        File::D => 'd',
-        File::E => 'e',
-        File::F => 'f',
-        File::G => 'g',
-        File::H => 'h',
-    };
-    let rank = |r| match r {
-        Rank::R1 => '1',
-        Rank::R2 => '2',
-        Rank::R3 => '3',
-        Rank::R4 => '4',
-        Rank::R5 => '5',
-        Rank::R6 => '6',
-        Rank::R7 => '7',
-        Rank::R8 => '8',
-    };
-    let mut s = format!(
-        "{}{}{}{}",
-        file(m.from.file),
-        rank(m.from.rank),
-        file(m.to.file),
-        rank(m.to.rank)
-    );
-    if let Some(p) = m.promotion {
-        s.push(match p {
-            Promotion::Queen => 'q',
-            Promotion::Rook => 'r',
-            Promotion::Bishop => 'b',
-            Promotion::Knight => 'n',
-        });
-    }
-    s
-}
-
-fn fmt_moves(moves: &[UciMove]) -> String {
-    moves
-        .iter()
-        .map(|&m| fmt_move(m))
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn fmt_check_status(s: &CheckStatus) -> &'static str {
-    match s {
-        CheckStatus::Checking => "checking",
-        CheckStatus::Ok => "ok",
-        CheckStatus::Error => "error",
-    }
-}
-
-fn fmt_bound(b: &ScoreBound) -> &'static str {
-    match b {
-        ScoreBound::Exact => "",
-        ScoreBound::LowerBound => " lowerbound",
-        ScoreBound::UpperBound => " upperbound",
-    }
-}
-
-fn fmt_info(f: &InfoFields) -> String {
-    macro_rules! field {
-        ($out:expr, $name:literal, $val:expr) => {
-            if let Some(v) = $val {
-                $out.push_str(&format!(concat!(" ", $name, " {}"), v));
-            }
-        };
-    }
-
-    let mut out = String::from("info");
-    field!(out, "depth", f.depth);
-    field!(out, "seldepth", f.seldepth);
-    field!(out, "time", f.time);
-    field!(out, "nodes", f.nodes);
-    if let Some(pv) = &f.pv {
-        out.push_str(&format!(" pv {}", fmt_moves(pv)));
-    }
-    field!(out, "multipv", f.multipv);
-    if let Some(score) = &f.score {
-        match score {
-            Score::Centipawns { value, bound } => {
-                out.push_str(&format!(" score cp {value}{}", fmt_bound(bound)));
-            }
-            Score::Mate { moves, bound } => {
-                out.push_str(&format!(" score mate {moves}{}", fmt_bound(bound)));
-            }
-        }
-    }
-    if let Some(m) = f.currmove {
-        out.push_str(&format!(" currmove {}", fmt_move(m)));
-    }
-    field!(out, "currmovenumber", f.currmovenumber);
-    field!(out, "hashfull", f.hashfull);
-    field!(out, "nps", f.nps);
-    field!(out, "tbhits", f.tbhits);
-    field!(out, "sbhits", f.sbhits);
-    field!(out, "cpuload", f.cpuload);
-    if let Some(s) = &f.string {
-        out.push_str(&format!(" string {s}"));
-    }
-    if let Some(r) = &f.refutation {
-        out.push_str(&format!(" refutation {}", fmt_move(r.mov)));
-        if !r.line.is_empty() {
-            out.push_str(&format!(" {}", fmt_moves(&r.line)));
-        }
-    }
-    if let Some(cl) = &f.currline {
-        out.push_str(" currline");
-        if let Some(cpu) = cl.cpu {
-            out.push_str(&format!(" {cpu}"));
-        }
-        if !cl.moves.is_empty() {
-            out.push_str(&format!(" {}", fmt_moves(&cl.moves)));
-        }
-    }
-    out
-}
-
-fn fmt_option(name: &str, opt: &OptionType) -> String {
-    match opt {
-        OptionType::Check { default } => {
-            format!("option name {name} type check default {default}")
-        }
-        OptionType::Spin { default, min, max } => {
-            format!("option name {name} type spin default {default} min {min} max {max}")
-        }
-        OptionType::Combo { default, vars } => {
-            let vars: String = vars.iter().map(|v| format!(" var {v}")).collect();
-            format!("option name {name} type combo default {default}{vars}")
-        }
-        OptionType::Button => format!("option name {name} type button"),
-        OptionType::Str { default } => {
-            let d = default.as_deref().unwrap_or("<empty>");
-            format!("option name {name} type string default {d}")
-        }
-    }
-}
-
-pub fn format_request(req: &UciRequest) -> String {
-    match req {
-        UciRequest::Uci => "uci".to_string(),
-        UciRequest::Debug(true) => "debug on".to_string(),
-        UciRequest::Debug(false) => "debug off".to_string(),
-        UciRequest::IsReady => "isready".to_string(),
-        UciRequest::SetOption { name, value } => match value {
-            None => format!("setoption name {name}"),
-            Some(v) => format!("setoption name {name} value {v}"),
-        },
-        UciRequest::Register(RegisterCommand::Later) => "register later".to_string(),
-        UciRequest::Register(RegisterCommand::Credentials { name, code }) => {
-            format!("register name {name} code {code}")
-        }
-        UciRequest::UciNewGame => "ucinewgame".to_string(),
-        UciRequest::Position { start, moves } => {
-            let mut s = match start {
-                PositionSpec::StartPos => "position startpos".to_string(),
-                PositionSpec::Fen(fen) => format!("position fen {fen}"),
-            };
-            if !moves.is_empty() {
-                s.push_str(&format!(" moves {}", fmt_moves(moves)));
-            }
-            s
-        }
-        UciRequest::Go(p) => fmt_go(p),
-        UciRequest::Stop => "stop".to_string(),
-        UciRequest::PonderHit => "ponderhit".to_string(),
-        UciRequest::Quit => "quit".to_string(),
-    }
-}
-
-fn fmt_go(p: &GoParams) -> String {
-    let mut s = "go".to_string();
-    if p.ponder {
-        s.push_str(" ponder");
-    }
-    match &p.limit {
-        SearchLimit::Infinite => s.push_str(" infinite"),
-        SearchLimit::Depth(d) => s.push_str(&format!(" depth {d}")),
-        SearchLimit::Nodes(n) => s.push_str(&format!(" nodes {n}")),
-        SearchLimit::Mate(m) => s.push_str(&format!(" mate {m}")),
-        SearchLimit::MoveTime(mt) => s.push_str(&format!(" movetime {mt}")),
-        SearchLimit::TimeControl(tc) => {
-            if let Some(v) = tc.wtime {
-                s.push_str(&format!(" wtime {v}"));
-            }
-            if let Some(v) = tc.btime {
-                s.push_str(&format!(" btime {v}"));
-            }
-            if let Some(v) = tc.winc {
-                s.push_str(&format!(" winc {v}"));
-            }
-            if let Some(v) = tc.binc {
-                s.push_str(&format!(" binc {v}"));
-            }
-            if let Some(v) = tc.movestogo {
-                s.push_str(&format!(" movestogo {v}"));
-            }
-        }
-    }
-    if !p.searchmoves.is_empty() {
-        s.push_str(&format!(" searchmoves {}", fmt_moves(&p.searchmoves)));
-    }
-    s
-}
-
-// Parsing
-
-pub fn parse_request(line: &str) -> Option<UciRequest> {
-    command(line.trim()).map(|(_, req)| req).ok()
-}
-
-fn command(i: &str) -> IResult<&str, UciRequest> {
+pub fn deserialize_request(i: &str) -> IResult<&str, UciRequest> {
     alt((
         value(UciRequest::UciNewGame, tag("ucinewgame")),
         value(UciRequest::Uci, tag("uci")),
@@ -283,16 +17,16 @@ fn command(i: &str) -> IResult<&str, UciRequest> {
         value(UciRequest::Stop, tag("stop")),
         value(UciRequest::PonderHit, tag("ponderhit")),
         value(UciRequest::Quit, tag("quit")),
-        parse_debug,
-        parse_setoption,
-        parse_register,
-        parse_position,
-        parse_go,
+        deserialize_debug,
+        deserialize_setoption,
+        deserialize_register,
+        deserialize_position,
+        deserialize_go,
     ))
     .parse(i)
 }
 
-fn parse_square(i: &str) -> IResult<&str, Square> {
+fn deserialize_square(i: &str) -> IResult<&str, Square> {
     let (i, file) = map(one_of("abcdefgh"), |c| match c {
         'a' => File::A,
         'b' => File::B,
@@ -320,9 +54,9 @@ fn parse_square(i: &str) -> IResult<&str, Square> {
     Ok((i, Square { file, rank }))
 }
 
-fn parse_move(i: &str) -> IResult<&str, UciMove> {
-    let (i, from) = parse_square(i)?;
-    let (i, to) = parse_square(i)?;
+fn deserialize_move(i: &str) -> IResult<&str, UciMove> {
+    let (i, from) = deserialize_square(i)?;
+    let (i, to) = deserialize_square(i)?;
     let (i, promotion) = opt(map(one_of("qrbn"), |c| match c {
         'q' => Promotion::Queen,
         'r' => Promotion::Rook,
@@ -341,7 +75,7 @@ fn parse_move(i: &str) -> IResult<&str, UciMove> {
     ))
 }
 
-fn parse_debug(i: &str) -> IResult<&str, UciRequest> {
+fn deserialize_debug(i: &str) -> IResult<&str, UciRequest> {
     let (i, _) = tag("debug")(i)?;
     let (i, _) = space1(i)?;
     alt((
@@ -351,7 +85,7 @@ fn parse_debug(i: &str) -> IResult<&str, UciRequest> {
     .parse(i)
 }
 
-fn parse_setoption(i: &str) -> IResult<&str, UciRequest> {
+fn deserialize_setoption(i: &str) -> IResult<&str, UciRequest> {
     let (i, _) = tag("setoption")(i)?;
     let (i, _) = space1(i)?;
     let (i, _) = tag("name")(i)?;
@@ -371,17 +105,17 @@ fn parse_setoption(i: &str) -> IResult<&str, UciRequest> {
     ))
 }
 
-fn parse_register(i: &str) -> IResult<&str, UciRequest> {
+fn deserialize_register(i: &str) -> IResult<&str, UciRequest> {
     let (i, _) = tag("register")(i)?;
     let (i, _) = space1(i)?;
     alt((
         value(UciRequest::Register(RegisterCommand::Later), tag("later")),
-        parse_register_credentials,
+        deserialize_register_credentials,
     ))
     .parse(i)
 }
 
-fn parse_register_credentials(i: &str) -> IResult<&str, UciRequest> {
+fn deserialize_register_credentials(i: &str) -> IResult<&str, UciRequest> {
     let (i, _) = tag("name")(i)?;
     let (i, _) = space1(i)?;
     let (i, name) = take_until(" code")(i)?;
@@ -398,24 +132,24 @@ fn parse_register_credentials(i: &str) -> IResult<&str, UciRequest> {
     ))
 }
 
-fn parse_fen_spec(i: &str) -> IResult<&str, PositionSpec> {
+fn deserialize_fen_spec(i: &str) -> IResult<&str, PositionSpec> {
     let (i, _) = tag("fen")(i)?;
     let (i, _) = space1(i)?;
     let (i, fen) = alt((take_until(" moves"), rest)).parse(i)?;
     Ok((i, PositionSpec::Fen(fen.to_string())))
 }
 
-fn parse_position(i: &str) -> IResult<&str, UciRequest> {
+fn deserialize_position(i: &str) -> IResult<&str, UciRequest> {
     let (i, _) = tag("position")(i)?;
     let (i, _) = space1(i)?;
     let (i, start) = alt((
         value(PositionSpec::StartPos, tag("startpos")),
-        parse_fen_spec,
+        deserialize_fen_spec,
     ))
     .parse(i)?;
     let (i, moves) = opt(preceded(
         pair(space1, tag("moves")),
-        many0(preceded(space1, parse_move)),
+        many0(preceded(space1, deserialize_move)),
     ))
     .parse(i)?;
     Ok((
@@ -427,7 +161,7 @@ fn parse_position(i: &str) -> IResult<&str, UciRequest> {
     ))
 }
 
-fn parse_go(i: &str) -> IResult<&str, UciRequest> {
+fn deserialize_go(i: &str) -> IResult<&str, UciRequest> {
     let (i, _) = tag("go")(i)?;
 
     let mut searchmoves: Vec<UciMove> = vec![];
@@ -484,7 +218,7 @@ fn parse_go(i: &str) -> IResult<&str, UciRequest> {
                 map(
                     preceded(
                         pair(tag("searchmoves"), space1),
-                        separated_list1(space1, parse_move),
+                        separated_list1(space1, deserialize_move),
                     ),
                     |v| {
                         searchmoves = v;
@@ -528,25 +262,21 @@ fn parse_go(i: &str) -> IResult<&str, UciRequest> {
     ))
 }
 
-pub fn parse_response(line: &str) -> Option<UciResponse> {
-    response(line.trim()).map(|(_, resp)| resp).ok()
-}
-
-fn response(i: &str) -> IResult<&str, UciResponse> {
+pub fn deserialize_response(i: &str) -> IResult<&str, UciResponse> {
     alt((
         value(UciResponse::UciOk, tag("uciok")),
         value(UciResponse::ReadyOk, tag("readyok")),
-        parse_id,
-        parse_bestmove,
-        parse_copyprotection,
-        parse_registration_resp,
-        parse_info_response,
-        parse_option_response,
+        deserialize_id,
+        deserialize_bestmove,
+        deserialize_copyprotection,
+        deserialize_registration,
+        deserialize_info_response,
+        deserialize_option_response,
     ))
     .parse(i)
 }
 
-fn parse_check_status(i: &str) -> IResult<&str, CheckStatus> {
+fn deserialize_check_status(i: &str) -> IResult<&str, CheckStatus> {
     alt((
         value(CheckStatus::Checking, tag("checking")),
         value(CheckStatus::Ok, tag("ok")),
@@ -555,7 +285,7 @@ fn parse_check_status(i: &str) -> IResult<&str, CheckStatus> {
     .parse(i)
 }
 
-fn parse_id(i: &str) -> IResult<&str, UciResponse> {
+fn deserialize_id(i: &str) -> IResult<&str, UciResponse> {
     let (i, _) = tag("id")(i)?;
     let (i, _) = space1(i)?;
     alt((
@@ -569,31 +299,31 @@ fn parse_id(i: &str) -> IResult<&str, UciResponse> {
     .parse(i)
 }
 
-fn parse_bestmove(i: &str) -> IResult<&str, UciResponse> {
+fn deserialize_bestmove(i: &str) -> IResult<&str, UciResponse> {
     let (i, _) = tag("bestmove")(i)?;
     let (i, _) = space1(i)?;
-    let (i, mov) = parse_move(i)?;
+    let (i, mov) = deserialize_move(i)?;
     let (i, ponder) = opt(preceded(
         pair(space1, tag("ponder")),
-        preceded(space1, parse_move),
+        preceded(space1, deserialize_move),
     ))
     .parse(i)?;
     Ok((i, UciResponse::BestMove { mov, ponder }))
 }
 
-fn parse_copyprotection(i: &str) -> IResult<&str, UciResponse> {
+fn deserialize_copyprotection(i: &str) -> IResult<&str, UciResponse> {
     let (i, _) = tag("copyprotection")(i)?;
     let (i, _) = space1(i)?;
-    map(parse_check_status, UciResponse::CopyProtection).parse(i)
+    map(deserialize_check_status, UciResponse::CopyProtection).parse(i)
 }
 
-fn parse_registration_resp(i: &str) -> IResult<&str, UciResponse> {
+fn deserialize_registration(i: &str) -> IResult<&str, UciResponse> {
     let (i, _) = tag("registration")(i)?;
     let (i, _) = space1(i)?;
-    map(parse_check_status, UciResponse::Registration).parse(i)
+    map(deserialize_check_status, UciResponse::Registration).parse(i)
 }
 
-fn parse_score_bound(i: &str) -> IResult<&str, ScoreBound> {
+fn deserialize_score_bound(i: &str) -> IResult<&str, ScoreBound> {
     let (i, bound) = opt(preceded(
         space1,
         alt((
@@ -605,14 +335,14 @@ fn parse_score_bound(i: &str) -> IResult<&str, ScoreBound> {
     Ok((i, bound.unwrap_or(ScoreBound::Exact)))
 }
 
-fn parse_score(i: &str) -> IResult<&str, Score> {
+fn deserialize_score(i: &str) -> IResult<&str, Score> {
     let (i, _) = tag("score")(i)?;
     let (i, _) = space1(i)?;
     alt((
         map(
             pair(
                 preceded(pair(tag("cp"), space1), parse_i64),
-                parse_score_bound,
+                deserialize_score_bound,
             ),
             |(value, bound)| Score::Centipawns {
                 value: value as i32,
@@ -622,7 +352,7 @@ fn parse_score(i: &str) -> IResult<&str, Score> {
         map(
             pair(
                 preceded(pair(tag("mate"), space1), parse_i64),
-                parse_score_bound,
+                deserialize_score_bound,
             ),
             |(moves, bound)| Score::Mate {
                 moves: moves as i32,
@@ -633,22 +363,22 @@ fn parse_score(i: &str) -> IResult<&str, Score> {
     .parse(i)
 }
 
-fn parse_refutation(i: &str) -> IResult<&str, Refutation> {
+fn deserialize_refutation(i: &str) -> IResult<&str, Refutation> {
     let (i, _) = tag("refutation")(i)?;
     let (i, _) = space1(i)?;
-    let (i, mov) = parse_move(i)?;
-    let (i, line) = many0(preceded(space1, parse_move)).parse(i)?;
+    let (i, mov) = deserialize_move(i)?;
+    let (i, line) = many0(preceded(space1, deserialize_move)).parse(i)?;
     Ok((i, Refutation { mov, line }))
 }
 
-fn parse_currline(i: &str) -> IResult<&str, CurrLine> {
+fn deserialize_currline(i: &str) -> IResult<&str, CurrLine> {
     let (i, _) = tag("currline")(i)?;
     let (i, cpu) = opt(preceded(space1, parse_u64)).parse(i)?;
-    let (i, moves) = many0(preceded(space1, parse_move)).parse(i)?;
+    let (i, moves) = many0(preceded(space1, deserialize_move)).parse(i)?;
     Ok((i, CurrLine { cpu, moves }))
 }
 
-fn parse_info_response(i: &str) -> IResult<&str, UciResponse> {
+fn deserialize_info_response(i: &str) -> IResult<&str, UciResponse> {
     let (i, _) = tag("info")(i)?;
     let mut fields = InfoFields::default();
 
@@ -670,7 +400,10 @@ fn parse_info_response(i: &str) -> IResult<&str, UciResponse> {
                     fields.nodes = Some(v);
                 }),
                 map(
-                    preceded(pair(tag("pv"), space1), separated_list1(space1, parse_move)),
+                    preceded(
+                        pair(tag("pv"), space1),
+                        separated_list1(space1, deserialize_move),
+                    ),
                     |v| {
                         fields.pv = Some(v);
                     },
@@ -678,12 +411,15 @@ fn parse_info_response(i: &str) -> IResult<&str, UciResponse> {
                 map(preceded(pair(tag("multipv"), space1), parse_u64), |v| {
                     fields.multipv = Some(v);
                 }),
-                map(parse_score, |v| {
+                map(deserialize_score, |v| {
                     fields.score = Some(v);
                 }),
-                map(preceded(pair(tag("currmove"), space1), parse_move), |v| {
-                    fields.currmove = Some(v);
-                }),
+                map(
+                    preceded(pair(tag("currmove"), space1), deserialize_move),
+                    |v| {
+                        fields.currmove = Some(v);
+                    },
+                ),
                 map(
                     preceded(pair(tag("currmovenumber"), space1), parse_u64),
                     |v| {
@@ -708,10 +444,10 @@ fn parse_info_response(i: &str) -> IResult<&str, UciResponse> {
                 map(preceded(pair(tag("string"), space1), rest), |v: &str| {
                     fields.string = Some(v.to_string());
                 }),
-                map(parse_refutation, |v| {
+                map(deserialize_refutation, |v| {
                     fields.refutation = Some(v);
                 }),
-                map(parse_currline, |v| {
+                map(deserialize_currline, |v| {
                     fields.currline = Some(v);
                 }),
             )),
@@ -725,18 +461,18 @@ fn parse_info_response(i: &str) -> IResult<&str, UciResponse> {
     Ok((i, UciResponse::Info(fields)))
 }
 
-fn parse_option_type(i: &str) -> IResult<&str, OptionType> {
+fn deserialize_option_type(i: &str) -> IResult<&str, OptionType> {
     alt((
-        parse_check_opt,
-        parse_spin_opt,
-        parse_combo_opt,
+        deserialize_check_opt,
+        deserialize_spin_opt,
+        deserialize_combo_opt,
         value(OptionType::Button, tag("button")),
-        parse_str_opt,
+        deserialize_str_opt,
     ))
     .parse(i)
 }
 
-fn parse_check_opt(i: &str) -> IResult<&str, OptionType> {
+fn deserialize_check_opt(i: &str) -> IResult<&str, OptionType> {
     let (i, _) = tag("check")(i)?;
     let (i, _) = space1(i)?;
     let (i, _) = tag("default")(i)?;
@@ -745,7 +481,7 @@ fn parse_check_opt(i: &str) -> IResult<&str, OptionType> {
     Ok((i, OptionType::Check { default }))
 }
 
-fn parse_spin_opt(i: &str) -> IResult<&str, OptionType> {
+fn deserialize_spin_opt(i: &str) -> IResult<&str, OptionType> {
     let (i, _) = tag("spin")(i)?;
     let (i, _) = space1(i)?;
     let (i, _) = tag("default")(i)?;
@@ -762,7 +498,7 @@ fn parse_spin_opt(i: &str) -> IResult<&str, OptionType> {
     Ok((i, OptionType::Spin { default, min, max }))
 }
 
-fn parse_combo_opt(i: &str) -> IResult<&str, OptionType> {
+fn deserialize_combo_opt(i: &str) -> IResult<&str, OptionType> {
     let (i, _) = tag("combo")(i)?;
     let (i, _) = space1(i)?;
     let (i, _) = tag("default")(i)?;
@@ -785,7 +521,7 @@ fn parse_combo_opt(i: &str) -> IResult<&str, OptionType> {
     ))
 }
 
-fn parse_str_opt(i: &str) -> IResult<&str, OptionType> {
+fn deserialize_str_opt(i: &str) -> IResult<&str, OptionType> {
     let (i, _) = tag("string")(i)?;
     let (i, _) = space1(i)?;
     let (i, _) = tag("default")(i)?;
@@ -796,7 +532,7 @@ fn parse_str_opt(i: &str) -> IResult<&str, OptionType> {
     Ok((i, OptionType::Str { default }))
 }
 
-fn parse_option_response(i: &str) -> IResult<&str, UciResponse> {
+fn deserialize_option_response(i: &str) -> IResult<&str, UciResponse> {
     let (i, _) = tag("option")(i)?;
     let (i, _) = space1(i)?;
     let (i, _) = tag("name")(i)?;
@@ -805,7 +541,7 @@ fn parse_option_response(i: &str) -> IResult<&str, UciResponse> {
     let (i, _) = space1(i)?;
     let (i, _) = tag("type")(i)?;
     let (i, _) = space1(i)?;
-    let (i, option_type) = parse_option_type(i)?;
+    let (i, option_type) = deserialize_option_type(i)?;
     Ok((
         i,
         UciResponse::Option {

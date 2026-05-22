@@ -1,10 +1,46 @@
 use std::sync::mpsc::{Receiver, Sender, channel};
 
-pub mod codec;
+use crate::uci::{
+    de::{deserialize_request, deserialize_response},
+    ser::{serialize_request, serialize_response},
+};
+
+pub mod de;
+pub mod ser;
 pub mod stdio;
 
 #[cfg(test)]
-mod codec_tests;
+mod mod_tests;
+
+impl From<&UciResponse> for String {
+    fn from(resp: &UciResponse) -> String {
+        serialize_response(resp)
+    }
+}
+
+impl From<&UciRequest> for String {
+    fn from(req: &UciRequest) -> String {
+        serialize_request(req)
+    }
+}
+
+impl TryFrom<&str> for UciRequest {
+    type Error = String;
+    fn try_from(s: &str) -> Result<Self, String> {
+        deserialize_request(s)
+            .map(|(_, req)| req)
+            .map_err(|e| e.to_string())
+    }
+}
+
+impl TryFrom<&str> for UciResponse {
+    type Error = String;
+    fn try_from(s: &str) -> Result<Self, String> {
+        deserialize_response(s)
+            .map(|(_, resp)| resp)
+            .map_err(|e| e.to_string())
+    }
+}
 
 pub trait UciHost: Send + 'static {
     fn start(self) -> (Sender<UciResponse>, Receiver<UciRequest>);
