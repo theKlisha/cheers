@@ -1,4 +1,3 @@
-
 pub struct BitBoard(u64);
 
 pub struct Occupancy {
