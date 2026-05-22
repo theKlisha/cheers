@@ -1,6 +1,7 @@
 #![allow(unused)]
 
-use std::{io, marker::PhantomData};
+use std::marker::PhantomData;
+use std::sync::mpsc::{Receiver, Sender};
 
 use crate::uci::{UciEngine, UciHost, UciRequest, UciResponse, connect};
 
@@ -40,15 +41,11 @@ where
 
 impl<B, S, E> UciEngine for Engine<B, S, E>
 where
-    B: Board,
-    S: Search,
-    E: Eval,
+    B: Board + Send + 'static,
+    S: Search + Send + 'static,
+    E: Eval + Send + 'static,
 {
-    fn read(&self) -> Option<UciResponse> {
-        todo!()
-    }
-
-    fn write(&self, request: UciRequest) -> io::Result<()> {
+    fn start(self) -> (Sender<UciRequest>, Receiver<UciResponse>) {
         todo!()
     }
 }
@@ -56,11 +53,7 @@ where
 pub struct StdioHost;
 
 impl UciHost for StdioHost {
-    fn read(&self) -> Option<UciRequest> {
-        todo!()
-    }
-
-    fn write(&self, response: UciResponse) -> io::Result<()> {
+    fn start(self) -> (Sender<UciResponse>, Receiver<UciRequest>) {
         todo!()
     }
 }

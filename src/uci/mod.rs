@@ -1,63 +1,44 @@
-use std::{
-    io,
-    sync::mpsc::{Receiver, Sender, channel},
-};
+pub mod stdio;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum File {
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-}
+use std::sync::mpsc::{Receiver, Sender, channel};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Rank {
-    R1,
-    R2,
-    R3,
-    R4,
-    R5,
-    R6,
-    R7,
-    R8,
-}
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum File { A, B, C, D, E, F, G, H }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Rank { R1, R2, R3, R4, R5, R6, R7, R8 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Square {
     pub file: File,
     pub rank: Rank,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Promotion {
-    Queen,
-    Rook,
-    Bishop,
-    Knight,
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Promotion { Queen, Rook, Bishop, Knight }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UciMove {
     pub from: Square,
     pub to: Square,
     pub promotion: Option<Promotion>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RegisterCommand {
     Later,
     Credentials { name: String, code: String },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PositionSpec {
     StartPos,
     Fen(String),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeControl {
     pub wtime: Option<u64>,
     pub btime: Option<u64>,
@@ -66,6 +47,7 @@ pub struct TimeControl {
     pub movestogo: Option<u64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SearchLimit {
     Infinite,
     Depth(u64),
@@ -75,53 +57,50 @@ pub enum SearchLimit {
     TimeControl(TimeControl),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoParams {
     pub searchmoves: Vec<UciMove>,
     pub ponder: bool,
     pub limit: SearchLimit,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UciRequest {
     Uci,
     Debug(bool),
     IsReady,
-    SetOption {
-        name: String,
-        value: Option<String>,
-    },
+    SetOption { name: String, value: Option<String> },
     Register(RegisterCommand),
     UciNewGame,
-    Position {
-        start: PositionSpec,
-        moves: Vec<UciMove>,
-    },
+    Position { start: PositionSpec, moves: Vec<UciMove> },
     Go(GoParams),
     Stop,
     PonderHit,
     Quit,
 }
 
-pub enum ScoreBound {
-    Exact,
-    LowerBound,
-    UpperBound,
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ScoreBound { Exact, LowerBound, UpperBound }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Score {
     Centipawns { value: i32, bound: ScoreBound },
     Mate { moves: i32, bound: ScoreBound },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Refutation {
     pub mov: UciMove,
     pub line: Vec<UciMove>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CurrLine {
     pub cpu: Option<u64>,
     pub moves: Vec<UciMove>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InfoFields {
     pub depth: Option<u64>,
     pub seldepth: Option<u64>,
@@ -142,12 +121,10 @@ pub struct InfoFields {
     pub currline: Option<CurrLine>,
 }
 
-pub enum CheckStatus {
-    Checking,
-    Ok,
-    Error,
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CheckStatus { Checking, Ok, Error }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OptionType {
     Check { default: bool },
     Spin { default: i64, min: i64, max: i64 },
@@ -156,34 +133,44 @@ pub enum OptionType {
     Str { default: Option<String> },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UciResponse {
     IdName(String),
     IdAuthor(String),
     UciOk,
     ReadyOk,
-    BestMove {
-        mov: UciMove,
-        ponder: Option<UciMove>,
-    },
+    BestMove { mov: UciMove, ponder: Option<UciMove> },
     CopyProtection(CheckStatus),
     Registration(CheckStatus),
     Info(InfoFields),
-    Option {
-        name: String,
-        option_type: OptionType,
-    },
+    Option { name: String, option_type: OptionType },
 }
 
-pub trait UciHost {
-    fn read(&self) -> Option<UciRequest>;
-    fn write(&self, response: UciResponse) -> io::Result<()>;
+pub trait UciHost: Send + 'static {
+    fn start(self) -> (Sender<UciResponse>, Receiver<UciRequest>);
 }
 
-pub trait UciEngine {
-    fn read(&self) -> Option<UciResponse>;
-    fn write(&self, request: UciRequest) -> io::Result<()>;
+pub trait UciEngine: Send + 'static {
+    fn start(self) -> (Sender<UciRequest>, Receiver<UciResponse>);
 }
 
-pub fn connect(host: impl UciHost, engine: impl UciEngine) -> io::Result<()> {
-    Ok(())
+pub fn connect(host: impl UciHost, engine: impl UciEngine) {
+    let (resp_tx, req_rx) = host.start();
+    let (req_tx, resp_rx) = engine.start();
+
+    let t = std::thread::spawn(move || {
+        for req in req_rx {
+            if req_tx.send(req).is_err() {
+                break;
+            }
+        }
+    });
+
+    for resp in resp_rx {
+        if resp_tx.send(resp).is_err() {
+            break;
+        }
+    }
+
+    t.join().ok();
 }
