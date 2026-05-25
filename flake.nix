@@ -26,6 +26,7 @@
             packages = [
               pkgs.cargo
               pkgs.rust-analyzer
+              pkgs.fastchess
             ];
           };
         }

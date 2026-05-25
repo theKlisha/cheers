@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::sync::mpsc::{Receiver, SendError, Sender, channel};
 
 use crate::uci::stdio::StdioUci;
-use crate::uci::{UciEngine, UciHost, UciRequest, UciResponse, connect};
+use crate::uci::{File, InfoFields, Rank, Score, ScoreBound, Square, UciEngine, UciHost, UciMove, UciRequest, UciResponse, connect};
 
 pub mod board;
 pub mod uci;
@@ -54,7 +54,27 @@ where
             for req in req_rx {
                 match req {
                     UciRequest::Uci => {
+                        resp_tx.send(UciResponse::IdName("cheers".to_string()))?;
+                        resp_tx.send(UciResponse::IdAuthor("theklisha".to_string()))?;
                         resp_tx.send(UciResponse::UciOk)?;
+                    }
+                    UciRequest::IsReady => {
+                        resp_tx.send(UciResponse::ReadyOk)?;
+                    }
+                    UciRequest::Go(_) => {
+                        resp_tx.send(UciResponse::Info(InfoFields {
+                            depth: Some(1),
+                            score: Some(Score::Centipawns { value: 0, bound: ScoreBound::Exact }),
+                            ..InfoFields::default()
+                        }))?;
+                        resp_tx.send(UciResponse::BestMove {
+                            mov: UciMove {
+                                from: Square { file: File::E, rank: Rank::R2 },
+                                to: Square { file: File::E, rank: Rank::R4 },
+                                promotion: None,
+                            },
+                            ponder: None,
+                        })?;
                     }
                     UciRequest::Quit => return Ok(()),
                     _ => continue,
