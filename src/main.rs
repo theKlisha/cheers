@@ -3,20 +3,30 @@
 use std::marker::PhantomData;
 use std::sync::mpsc::{Receiver, SendError, Sender, channel};
 
+use crate::board::{Board, Color, Move, Piece};
 use crate::uci::stdio::StdioUci;
 use crate::uci::{File, InfoFields, Rank, Score, ScoreBound, Square, UciEngine, UciHost, UciMove, UciRequest, UciResponse, connect};
 
 pub mod board;
 pub mod uci;
 
-pub trait Board {}
 pub trait Search {}
 pub trait Eval {}
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Nil;
 
-impl Board for Nil {}
+impl Board for Nil {
+    fn startpos() -> Self { Nil }
+    fn from_fen(_: &str) -> Result<Self, String> { Ok(Nil) }
+    fn to_fen(&self) -> String { String::new() }
+    fn side_to_move(&self) -> Color { Color::White }
+    fn piece_at(&self, _: u8) -> Option<Piece> { None }
+    fn make_move(&mut self, _: Move) {}
+    fn generate_moves(&self) -> Vec<Move> { vec![] }
+    fn is_in_check(&self, _: Color) -> bool { false }
+}
+
 impl Search for Nil {}
 impl Eval for Nil {}
 
