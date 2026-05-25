@@ -26,7 +26,11 @@ pub fn parse_square(s: &str) -> Result<u8, String> {
 }
 
 fn char_to_piece(ch: char) -> Result<Piece, String> {
-    let color = if ch.is_uppercase() { Color::White } else { Color::Black };
+    let color = if ch.is_uppercase() {
+        Color::White
+    } else {
+        Color::Black
+    };
     let kind = match ch.to_ascii_lowercase() {
         'p' => Kind::Pawn,
         'r' => Kind::Rook,
@@ -57,8 +61,14 @@ fn piece_to_char(piece: Piece) -> char {
 const DIAGONALS: [(i8, i8); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
 const ORTHOGONALS: [(i8, i8); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
 const KNIGHT_JUMPS: [(i8, i8); 8] = [
-    (-2, -1), (-2, 1), (-1, -2), (-1, 2),
-    (1, -2), (1, 2), (2, -1), (2, 1),
+    (-2, -1),
+    (-2, 1),
+    (-1, -2),
+    (-1, 2),
+    (1, -2),
+    (1, 2),
+    (2, -1),
+    (2, 1),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -231,14 +241,26 @@ impl Mailbox {
             if self.piece_at(to_sq).is_none() {
                 if to_r == promo_rank {
                     for kind in [Kind::Queen, Kind::Rook, Kind::Bishop, Kind::Kingt] {
-                        moves.push(Move { from, to: to_sq, promotion: Some(kind) });
+                        moves.push(Move {
+                            from,
+                            to: to_sq,
+                            promotion: Some(kind),
+                        });
                     }
                 } else {
-                    moves.push(Move { from, to: to_sq, promotion: None });
+                    moves.push(Move {
+                        from,
+                        to: to_sq,
+                        promotion: None,
+                    });
                     if r == start_rank {
                         let to_sq2 = sq(f as u8, (r + 2 * dir) as u8);
                         if self.piece_at(to_sq2).is_none() {
-                            moves.push(Move { from, to: to_sq2, promotion: None });
+                            moves.push(Move {
+                                from,
+                                to: to_sq2,
+                                promotion: None,
+                            });
                         }
                     }
                 }
@@ -257,10 +279,18 @@ impl Mailbox {
                 if is_capture {
                     if to_r == promo_rank {
                         for kind in [Kind::Queen, Kind::Rook, Kind::Bishop, Kind::Kingt] {
-                            moves.push(Move { from, to: cap_sq, promotion: Some(kind) });
+                            moves.push(Move {
+                                from,
+                                to: cap_sq,
+                                promotion: Some(kind),
+                            });
                         }
                     } else {
-                        moves.push(Move { from, to: cap_sq, promotion: None });
+                        moves.push(Move {
+                            from,
+                            to: cap_sq,
+                            promotion: None,
+                        });
                     }
                 }
             }
@@ -280,7 +310,11 @@ impl Mailbox {
             let to_sq = sq(tf as u8, tr as u8);
             match self.piece_at(to_sq) {
                 Some((c, _)) if c == color => continue,
-                _ => moves.push(Move { from, to: to_sq, promotion: None }),
+                _ => moves.push(Move {
+                    from,
+                    to: to_sq,
+                    promotion: None,
+                }),
             }
         }
     }
@@ -297,11 +331,19 @@ impl Mailbox {
                 match self.piece_at(to_sq) {
                     Some((c, _)) => {
                         if c != color {
-                            moves.push(Move { from, to: to_sq, promotion: None });
+                            moves.push(Move {
+                                from,
+                                to: to_sq,
+                                promotion: None,
+                            });
                         }
                         break;
                     }
-                    None => moves.push(Move { from, to: to_sq, promotion: None }),
+                    None => moves.push(Move {
+                        from,
+                        to: to_sq,
+                        promotion: None,
+                    }),
                 }
                 tf += df;
                 tr += dr;
@@ -327,7 +369,11 @@ impl Mailbox {
                 let to_sq = sq(tf as u8, tr as u8);
                 match self.piece_at(to_sq) {
                     Some((c, _)) if c == color => continue,
-                    _ => moves.push(Move { from, to: to_sq, promotion: None }),
+                    _ => moves.push(Move {
+                        from,
+                        to: to_sq,
+                        promotion: None,
+                    }),
                 }
             }
         }
@@ -342,7 +388,11 @@ impl Mailbox {
                     && !self.is_attacked(sq(5, 0), opp)
                     && !self.is_attacked(sq(6, 0), opp)
                 {
-                    moves.push(Move { from, to: sq(6, 0), promotion: None });
+                    moves.push(Move {
+                        from,
+                        to: sq(6, 0),
+                        promotion: None,
+                    });
                 }
                 if self.castling.white_queenside
                     && self.piece_at(sq(3, 0)).is_none()
@@ -352,7 +402,11 @@ impl Mailbox {
                     && !self.is_attacked(sq(3, 0), opp)
                     && !self.is_attacked(sq(2, 0), opp)
                 {
-                    moves.push(Move { from, to: sq(2, 0), promotion: None });
+                    moves.push(Move {
+                        from,
+                        to: sq(2, 0),
+                        promotion: None,
+                    });
                 }
             }
             Color::Black => {
@@ -363,7 +417,11 @@ impl Mailbox {
                     && !self.is_attacked(sq(5, 7), opp)
                     && !self.is_attacked(sq(6, 7), opp)
                 {
-                    moves.push(Move { from, to: sq(6, 7), promotion: None });
+                    moves.push(Move {
+                        from,
+                        to: sq(6, 7),
+                        promotion: None,
+                    });
                 }
                 if self.castling.black_queenside
                     && self.piece_at(sq(3, 7)).is_none()
@@ -373,7 +431,11 @@ impl Mailbox {
                     && !self.is_attacked(sq(3, 7), opp)
                     && !self.is_attacked(sq(2, 7), opp)
                 {
-                    moves.push(Move { from, to: sq(2, 7), promotion: None });
+                    moves.push(Move {
+                        from,
+                        to: sq(2, 7),
+                        promotion: None,
+                    });
                 }
             }
         }
@@ -494,11 +556,25 @@ impl Board for Mailbox {
 
         fen.push(' ');
         let mut any = false;
-        if self.castling.white_kingside { fen.push('K'); any = true; }
-        if self.castling.white_queenside { fen.push('Q'); any = true; }
-        if self.castling.black_kingside { fen.push('k'); any = true; }
-        if self.castling.black_queenside { fen.push('q'); any = true; }
-        if !any { fen.push('-'); }
+        if self.castling.white_kingside {
+            fen.push('K');
+            any = true;
+        }
+        if self.castling.white_queenside {
+            fen.push('Q');
+            any = true;
+        }
+        if self.castling.black_kingside {
+            fen.push('k');
+            any = true;
+        }
+        if self.castling.black_queenside {
+            fen.push('q');
+            any = true;
+        }
+        if !any {
+            fen.push('-');
+        }
 
         fen.push(' ');
         match self.en_passant {
@@ -528,8 +604,7 @@ impl Board for Mailbox {
         };
         let (color, kind) = piece;
         let is_pawn = matches!(kind, Kind::Pawn);
-        let is_capture = self.piece_at(to).is_some()
-            || (is_pawn && Some(to) == self.en_passant);
+        let is_capture = self.piece_at(to).is_some() || (is_pawn && Some(to) == self.en_passant);
 
         if is_pawn && Some(to) == self.en_passant {
             let captured_sq = match color {
@@ -618,11 +693,14 @@ impl Board for Mailbox {
             }
         }
 
-        moves.into_iter().filter(|m| {
-            let mut copy = self.clone();
-            copy.make_move(*m);
-            !copy.is_in_check(us)
-        }).collect()
+        moves
+            .into_iter()
+            .filter(|m| {
+                let mut copy = self.clone();
+                copy.make_move(*m);
+                !copy.is_in_check(us)
+            })
+            .collect()
     }
 
     fn is_in_check(&self, color: Color) -> bool {
@@ -739,7 +817,12 @@ mod tests {
     #[test]
     fn make_move_sequence_italian() {
         let mut board = Mailbox::startpos();
-        for m in [mv("e2", "e4"), mv("e7", "e5"), mv("g1", "f3"), mv("b8", "c6")] {
+        for m in [
+            mv("e2", "e4"),
+            mv("e7", "e5"),
+            mv("g1", "f3"),
+            mv("b8", "c6"),
+        ] {
             board.make_move(m);
         }
         assert_eq!(
@@ -750,45 +833,59 @@ mod tests {
 
     #[test]
     fn make_move_capture_resets_halfmove() {
-        let mut board = Mailbox::from_fen(
-            "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2",
-        ).unwrap();
+        let mut board =
+            Mailbox::from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2")
+                .unwrap();
         board.make_move(mv("e4", "d5"));
         assert_eq!(board.halfmove_clock, 0);
-        assert_eq!(board.piece_at(parse_square("d5").unwrap()), Some((Color::White, Kind::Pawn)));
+        assert_eq!(
+            board.piece_at(parse_square("d5").unwrap()),
+            Some((Color::White, Kind::Pawn))
+        );
         assert_eq!(board.piece_at(parse_square("e4").unwrap()), None);
     }
 
     #[test]
     fn make_move_en_passant_white() {
-        let mut board = Mailbox::from_fen(
-            "rnbqkbnr/pppp1ppp/8/4pP2/8/8/PPPPP1PP/RNBQKBNR w KQkq e6 0 3",
-        ).unwrap();
+        let mut board =
+            Mailbox::from_fen("rnbqkbnr/pppp1ppp/8/4pP2/8/8/PPPPP1PP/RNBQKBNR w KQkq e6 0 3")
+                .unwrap();
         board.make_move(mv("f5", "e6"));
-        assert_eq!(board.piece_at(parse_square("e6").unwrap()), Some((Color::White, Kind::Pawn)));
+        assert_eq!(
+            board.piece_at(parse_square("e6").unwrap()),
+            Some((Color::White, Kind::Pawn))
+        );
         assert_eq!(board.piece_at(parse_square("e5").unwrap()), None);
         assert_eq!(board.piece_at(parse_square("f5").unwrap()), None);
     }
 
     #[test]
     fn make_move_en_passant_black() {
-        let mut board = Mailbox::from_fen(
-            "rnbqkbnr/ppppp1pp/8/8/4Pp2/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 3",
-        ).unwrap();
+        let mut board =
+            Mailbox::from_fen("rnbqkbnr/ppppp1pp/8/8/4Pp2/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 3")
+                .unwrap();
         board.make_move(mv("f4", "e3"));
-        assert_eq!(board.piece_at(parse_square("e3").unwrap()), Some((Color::Black, Kind::Pawn)));
+        assert_eq!(
+            board.piece_at(parse_square("e3").unwrap()),
+            Some((Color::Black, Kind::Pawn))
+        );
         assert_eq!(board.piece_at(parse_square("e4").unwrap()), None);
         assert_eq!(board.piece_at(parse_square("f4").unwrap()), None);
     }
 
     #[test]
     fn make_move_kingside_castle_white() {
-        let mut board = Mailbox::from_fen(
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQK2R w KQkq - 0 1",
-        ).unwrap();
+        let mut board =
+            Mailbox::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQK2R w KQkq - 0 1").unwrap();
         board.make_move(mv("e1", "g1"));
-        assert_eq!(board.piece_at(parse_square("g1").unwrap()), Some((Color::White, Kind::King)));
-        assert_eq!(board.piece_at(parse_square("f1").unwrap()), Some((Color::White, Kind::Rook)));
+        assert_eq!(
+            board.piece_at(parse_square("g1").unwrap()),
+            Some((Color::White, Kind::King))
+        );
+        assert_eq!(
+            board.piece_at(parse_square("f1").unwrap()),
+            Some((Color::White, Kind::Rook))
+        );
         assert_eq!(board.piece_at(parse_square("e1").unwrap()), None);
         assert_eq!(board.piece_at(parse_square("h1").unwrap()), None);
         assert!(!board.castling.white_kingside);
@@ -797,24 +894,34 @@ mod tests {
 
     #[test]
     fn make_move_queenside_castle_white() {
-        let mut board = Mailbox::from_fen(
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/R3KBNR w KQkq - 0 1",
-        ).unwrap();
+        let mut board =
+            Mailbox::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/R3KBNR w KQkq - 0 1").unwrap();
         board.make_move(mv("e1", "c1"));
-        assert_eq!(board.piece_at(parse_square("c1").unwrap()), Some((Color::White, Kind::King)));
-        assert_eq!(board.piece_at(parse_square("d1").unwrap()), Some((Color::White, Kind::Rook)));
+        assert_eq!(
+            board.piece_at(parse_square("c1").unwrap()),
+            Some((Color::White, Kind::King))
+        );
+        assert_eq!(
+            board.piece_at(parse_square("d1").unwrap()),
+            Some((Color::White, Kind::Rook))
+        );
         assert_eq!(board.piece_at(parse_square("e1").unwrap()), None);
         assert_eq!(board.piece_at(parse_square("a1").unwrap()), None);
     }
 
     #[test]
     fn make_move_kingside_castle_black() {
-        let mut board = Mailbox::from_fen(
-            "rnbqk2r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1",
-        ).unwrap();
+        let mut board =
+            Mailbox::from_fen("rnbqk2r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1").unwrap();
         board.make_move(mv("e8", "g8"));
-        assert_eq!(board.piece_at(parse_square("g8").unwrap()), Some((Color::Black, Kind::King)));
-        assert_eq!(board.piece_at(parse_square("f8").unwrap()), Some((Color::Black, Kind::Rook)));
+        assert_eq!(
+            board.piece_at(parse_square("g8").unwrap()),
+            Some((Color::Black, Kind::King))
+        );
+        assert_eq!(
+            board.piece_at(parse_square("f8").unwrap()),
+            Some((Color::Black, Kind::Rook))
+        );
         assert_eq!(board.piece_at(parse_square("e8").unwrap()), None);
         assert_eq!(board.piece_at(parse_square("h8").unwrap()), None);
         assert!(!board.castling.black_kingside);
@@ -823,28 +930,29 @@ mod tests {
 
     #[test]
     fn make_move_promotion() {
-        let mut board = Mailbox::from_fen(
-            "8/4P3/8/8/8/8/8/4K2k w - - 0 1",
-        ).unwrap();
+        let mut board = Mailbox::from_fen("8/4P3/8/8/8/8/8/4K2k w - - 0 1").unwrap();
         board.make_move(mvp("e7", "e8", Kind::Queen));
-        assert_eq!(board.piece_at(parse_square("e8").unwrap()), Some((Color::White, Kind::Queen)));
+        assert_eq!(
+            board.piece_at(parse_square("e8").unwrap()),
+            Some((Color::White, Kind::Queen))
+        );
         assert_eq!(board.piece_at(parse_square("e7").unwrap()), None);
     }
 
     #[test]
     fn make_move_promotion_capture() {
-        let mut board = Mailbox::from_fen(
-            "3r4/4P3/8/8/8/8/8/4K2k w - - 0 1",
-        ).unwrap();
+        let mut board = Mailbox::from_fen("3r4/4P3/8/8/8/8/8/4K2k w - - 0 1").unwrap();
         board.make_move(mvp("e7", "d8", Kind::Kingt));
-        assert_eq!(board.piece_at(parse_square("d8").unwrap()), Some((Color::White, Kind::Kingt)));
+        assert_eq!(
+            board.piece_at(parse_square("d8").unwrap()),
+            Some((Color::White, Kind::Kingt))
+        );
     }
 
     #[test]
     fn make_move_rook_move_removes_castling() {
-        let mut board = Mailbox::from_fen(
-            "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1",
-        ).unwrap();
+        let mut board =
+            Mailbox::from_fen("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1").unwrap();
         board.make_move(mv("h1", "h2"));
         assert!(!board.castling.white_kingside);
         assert!(board.castling.white_queenside);
@@ -852,9 +960,8 @@ mod tests {
 
     #[test]
     fn make_move_rook_captured_removes_castling() {
-        let mut board = Mailbox::from_fen(
-            "r3k2r/pppppppp/8/8/8/7B/PPPPPPPP/R3K2R w KQkq - 0 1",
-        ).unwrap();
+        let mut board =
+            Mailbox::from_fen("r3k2r/pppppppp/8/8/8/7B/PPPPPPPP/R3K2R w KQkq - 0 1").unwrap();
         board.make_move(mv("h3", "a8"));
         assert!(!board.castling.black_queenside);
         assert!(board.castling.black_kingside);
@@ -871,9 +978,9 @@ mod tests {
 
     #[test]
     fn make_move_halfmove_increments_on_quiet() {
-        let mut board = Mailbox::from_fen(
-            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
-        ).unwrap();
+        let mut board =
+            Mailbox::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1")
+                .unwrap();
         board.make_move(mv("b8", "c6"));
         assert_eq!(board.halfmove_clock, 1);
     }
@@ -926,9 +1033,9 @@ mod tests {
 
     #[test]
     fn is_in_check_fools_mate() {
-        let board = Mailbox::from_fen(
-            "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3",
-        ).unwrap();
+        let board =
+            Mailbox::from_fen("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3")
+                .unwrap();
         assert!(board.is_in_check(Color::White));
         assert!(!board.is_in_check(Color::Black));
     }
@@ -942,9 +1049,8 @@ mod tests {
 
     #[test]
     fn generate_moves_includes_castling() {
-        let board = Mailbox::from_fen(
-            "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1",
-        ).unwrap();
+        let board =
+            Mailbox::from_fen("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1").unwrap();
         let moves = board.generate_moves();
         assert!(has_move(&moves, mv("e1", "g1")));
         assert!(has_move(&moves, mv("e1", "c1")));
@@ -952,9 +1058,7 @@ mod tests {
 
     #[test]
     fn generate_moves_no_castling_through_check() {
-        let board = Mailbox::from_fen(
-            "4k3/8/8/8/5r2/8/8/R3K2R w KQ - 0 1",
-        ).unwrap();
+        let board = Mailbox::from_fen("4k3/8/8/8/5r2/8/8/R3K2R w KQ - 0 1").unwrap();
         let moves = board.generate_moves();
         assert!(!has_move(&moves, mv("e1", "g1")));
         assert!(has_move(&moves, mv("e1", "c1")));
@@ -962,9 +1066,7 @@ mod tests {
 
     #[test]
     fn generate_moves_no_castling_in_check() {
-        let board = Mailbox::from_fen(
-            "4k3/8/8/8/4r3/8/8/R3K2R w KQ - 0 1",
-        ).unwrap();
+        let board = Mailbox::from_fen("4k3/8/8/8/4r3/8/8/R3K2R w KQ - 0 1").unwrap();
         let moves = board.generate_moves();
         assert!(!has_move(&moves, mv("e1", "g1")));
         assert!(!has_move(&moves, mv("e1", "c1")));
@@ -972,18 +1074,16 @@ mod tests {
 
     #[test]
     fn generate_moves_en_passant() {
-        let board = Mailbox::from_fen(
-            "rnbqkbnr/pppp1ppp/8/4pP2/8/8/PPPPP1PP/RNBQKBNR w KQkq e6 0 3",
-        ).unwrap();
+        let board =
+            Mailbox::from_fen("rnbqkbnr/pppp1ppp/8/4pP2/8/8/PPPPP1PP/RNBQKBNR w KQkq e6 0 3")
+                .unwrap();
         let moves = board.generate_moves();
         assert!(has_move(&moves, mv("f5", "e6")));
     }
 
     #[test]
     fn generate_moves_promotion() {
-        let board = Mailbox::from_fen(
-            "8/4P3/8/8/8/8/8/4K2k w - - 0 1",
-        ).unwrap();
+        let board = Mailbox::from_fen("8/4P3/8/8/8/8/8/4K2k w - - 0 1").unwrap();
         let moves = board.generate_moves();
         assert!(has_move(&moves, mvp("e7", "e8", Kind::Queen)));
         assert!(has_move(&moves, mvp("e7", "e8", Kind::Rook)));
@@ -993,9 +1093,7 @@ mod tests {
 
     #[test]
     fn generate_moves_pinned_piece() {
-        let board = Mailbox::from_fen(
-            "8/8/8/8/8/1b6/2P5/3K3k w - - 0 1",
-        ).unwrap();
+        let board = Mailbox::from_fen("8/8/8/8/8/1b6/2P5/3K3k w - - 0 1").unwrap();
         let moves = board.generate_moves();
         assert!(!has_move(&moves, mv("c2", "c3")));
         assert!(!has_move(&moves, mv("c2", "c4")));
@@ -1003,18 +1101,16 @@ mod tests {
 
     #[test]
     fn generate_moves_checkmate_no_moves() {
-        let board = Mailbox::from_fen(
-            "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3",
-        ).unwrap();
+        let board =
+            Mailbox::from_fen("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3")
+                .unwrap();
         let moves = board.generate_moves();
         assert!(moves.is_empty());
     }
 
     #[test]
     fn generate_moves_stalemate_no_moves() {
-        let board = Mailbox::from_fen(
-            "7k/8/6QK/8/8/8/8/8 b - - 0 1",
-        ).unwrap();
+        let board = Mailbox::from_fen("7k/8/6QK/8/8/8/8/8 b - - 0 1").unwrap();
         let moves = board.generate_moves();
         assert!(moves.is_empty());
     }
