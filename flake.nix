@@ -26,7 +26,9 @@
             packages = [
               pkgs.cargo
               pkgs.rust-analyzer
+              pkgs.python3
               pkgs.fastchess
+              pkgs.stockfish
             ];
           };
         }

@@ -54,7 +54,7 @@ pub fn connect(host: impl UciHost, engine: impl UciEngine) {
     let (resp_tx, req_rx) = host.start();
     let (req_tx, resp_rx) = engine.start();
 
-    let t = std::thread::spawn(move || {
+    std::thread::spawn(move || {
         for req in req_rx {
             if req_tx.send(req).is_err() {
                 break;
@@ -67,8 +67,6 @@ pub fn connect(host: impl UciHost, engine: impl UciEngine) {
             break;
         }
     }
-
-    t.join().ok();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
