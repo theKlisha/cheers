@@ -1,6 +1,4 @@
-use crate::board::{Board, Move};
-use crate::eval::Eval;
-use crate::search::Search;
+use crate::{Board, Eval, Move, Search};
 
 pub struct RandomSearch {
     state: u64,
@@ -30,7 +28,7 @@ impl RandomSearch {
 }
 
 impl Search for RandomSearch {
-    fn search<B: Board, E: Eval>(&mut self, board: &B, _eval: &E) -> Option<Move> {
+    fn search(&mut self, board: &impl Board, _eval: &impl Eval) -> Option<Move> {
         let moves: Vec<Move> = board.move_iter().collect();
         if moves.is_empty() {
             return None;

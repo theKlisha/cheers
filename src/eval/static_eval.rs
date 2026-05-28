@@ -1,5 +1,4 @@
-use crate::board::Board;
-use crate::eval::Eval;
+use crate::{Board, Eval};
 
 pub struct StaticEval {
     value: i32,
@@ -18,7 +17,7 @@ impl Default for StaticEval {
 }
 
 impl Eval for StaticEval {
-    fn evaluate<B: Board>(&self, _board: &B) -> i32 {
+    fn evaluate(&self, _board: &impl Board) -> i32 {
         self.value
     }
 }

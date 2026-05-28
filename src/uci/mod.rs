@@ -1,6 +1,4 @@
-use std::sync::mpsc::{Receiver, Sender, channel};
-
-pub use crate::board::{File, Move, Promotion, Rank, Square};
+pub use crate::{File, Move, Promotion, Rank, Square};
 
 use crate::uci::{
     de::{deserialize_request, deserialize_response},
@@ -44,32 +42,6 @@ impl TryFrom<&str> for UciResponse {
     }
 }
 
-pub trait UciHost: Send + 'static {
-    fn start(self) -> (Sender<UciResponse>, Receiver<UciRequest>);
-}
-
-pub trait UciEngine: Send + 'static {
-    fn start(self) -> (Sender<UciRequest>, Receiver<UciResponse>);
-}
-
-pub fn connect(host: impl UciHost, engine: impl UciEngine) {
-    let (resp_tx, req_rx) = host.start();
-    let (req_tx, resp_rx) = engine.start();
-
-    std::thread::spawn(move || {
-        for req in req_rx {
-            if req_tx.send(req).is_err() {
-                break;
-            }
-        }
-    });
-
-    for resp in resp_rx {
-        if resp_tx.send(resp).is_err() {
-            break;
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegisterCommand {

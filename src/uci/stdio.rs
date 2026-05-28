@@ -1,7 +1,8 @@
 use std::io::{self, BufRead, Write};
 use std::sync::mpsc::{Receiver, Sender, channel};
 
-use crate::uci::{UciHost, UciRequest, UciResponse};
+use crate::uci::{UciRequest, UciResponse};
+use crate::UciHost;
 
 pub struct StdioUci;
 

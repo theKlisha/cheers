@@ -1,4 +1,4 @@
-use crate::board::{Board, CastlingRights, Color, Fen, Kind, Move, Piece, Promotion, Square};
+use crate::{Board, CastlingRights, Color, Fen, Kind, Move, Piece, Promotion, Square};
 
 pub fn sq(file: u8, rank: u8) -> u8 {
     rank * 8 + file

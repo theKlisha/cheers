@@ -2,22 +2,12 @@
 
 use std::sync::mpsc::{Receiver, SendError, Sender, channel};
 
-use crate::board::mailbox::Mailbox;
-use crate::board::Board;
-use crate::eval::Eval;
-use crate::eval::static_eval::StaticEval;
-use crate::search::Search;
-use crate::search::random::RandomSearch;
-use crate::uci::stdio::StdioUci;
-use crate::uci::{
-    InfoFields, PositionSpec, Score, ScoreBound, UciEngine, UciHost, UciRequest, UciResponse,
-    connect,
-};
-
-pub mod board;
-pub mod eval;
-pub mod search;
-pub mod uci;
+use cheers::board::mailbox::Mailbox;
+use cheers::eval::static_eval::StaticEval;
+use cheers::search::random::RandomSearch;
+use cheers::uci::stdio::StdioUci;
+use cheers::uci::{InfoFields, PositionSpec, Score, ScoreBound, UciRequest, UciResponse};
+use cheers::{Board, Eval, Move, Search, UciEngine, UciHost, connect};
 
 pub struct Engine<B, S, E>
 where
