@@ -4,16 +4,16 @@ fn sq(file: File, rank: Rank) -> Square {
     Square { file, rank }
 }
 
-fn mv(from: Square, to: Square) -> UciMove {
-    UciMove {
+fn mv(from: Square, to: Square) -> Move {
+    Move {
         from,
         to,
         promotion: None,
     }
 }
 
-fn mvp(from: Square, to: Square, promo: Promotion) -> UciMove {
-    UciMove {
+fn mvp(from: Square, to: Square, promo: Promotion) -> Move {
+    Move {
         from,
         to,
         promotion: Some(promo),

@@ -1,5 +1,7 @@
 use std::sync::mpsc::{Receiver, Sender, channel};
 
+pub use crate::board::{File, Move, Promotion, Rank, Square};
+
 use crate::uci::{
     de::{deserialize_request, deserialize_response},
     ser::{serialize_request, serialize_response},
@@ -69,51 +71,6 @@ pub fn connect(host: impl UciHost, engine: impl UciEngine) {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum File {
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Rank {
-    R1,
-    R2,
-    R3,
-    R4,
-    R5,
-    R6,
-    R7,
-    R8,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Square {
-    pub file: File,
-    pub rank: Rank,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Promotion {
-    Queen,
-    Rook,
-    Bishop,
-    Knight,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UciMove {
-    pub from: Square,
-    pub to: Square,
-    pub promotion: Option<Promotion>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegisterCommand {
     Later,
@@ -147,7 +104,7 @@ pub enum SearchLimit {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GoParams {
-    pub searchmoves: Vec<UciMove>,
+    pub searchmoves: Vec<Move>,
     pub ponder: bool,
     pub limit: SearchLimit,
 }
@@ -165,7 +122,7 @@ pub enum UciRequest {
     UciNewGame,
     Position {
         start: PositionSpec,
-        moves: Vec<UciMove>,
+        moves: Vec<Move>,
     },
     Go(GoParams),
     Stop,
@@ -188,14 +145,14 @@ pub enum Score {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Refutation {
-    pub mov: UciMove,
-    pub line: Vec<UciMove>,
+    pub mov: Move,
+    pub line: Vec<Move>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CurrLine {
     pub cpu: Option<u64>,
-    pub moves: Vec<UciMove>,
+    pub moves: Vec<Move>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -204,10 +161,10 @@ pub struct InfoFields {
     pub seldepth: Option<u64>,
     pub time: Option<u64>,
     pub nodes: Option<u64>,
-    pub pv: Option<Vec<UciMove>>,
+    pub pv: Option<Vec<Move>>,
     pub multipv: Option<u64>,
     pub score: Option<Score>,
-    pub currmove: Option<UciMove>,
+    pub currmove: Option<Move>,
     pub currmovenumber: Option<u64>,
     pub hashfull: Option<u64>,
     pub nps: Option<u64>,
@@ -242,8 +199,8 @@ pub enum UciResponse {
     UciOk,
     ReadyOk,
     BestMove {
-        mov: UciMove,
-        ponder: Option<UciMove>,
+        mov: Move,
+        ponder: Option<Move>,
     },
     CopyProtection(CheckStatus),
     Registration(CheckStatus),

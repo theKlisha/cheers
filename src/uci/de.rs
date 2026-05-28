@@ -54,7 +54,7 @@ fn deserialize_square(i: &str) -> IResult<&str, Square> {
     Ok((i, Square { file, rank }))
 }
 
-fn deserialize_move(i: &str) -> IResult<&str, UciMove> {
+fn deserialize_move(i: &str) -> IResult<&str, Move> {
     let (i, from) = deserialize_square(i)?;
     let (i, to) = deserialize_square(i)?;
     let (i, promotion) = opt(map(one_of("qrbn"), |c| match c {
@@ -67,7 +67,7 @@ fn deserialize_move(i: &str) -> IResult<&str, UciMove> {
     .parse(i)?;
     Ok((
         i,
-        UciMove {
+        Move {
             from,
             to,
             promotion,
@@ -164,7 +164,7 @@ fn deserialize_position(i: &str) -> IResult<&str, UciRequest> {
 fn deserialize_go(i: &str) -> IResult<&str, UciRequest> {
     let (i, _) = tag("go")(i)?;
 
-    let mut searchmoves: Vec<UciMove> = vec![];
+    let mut searchmoves: Vec<Move> = vec![];
     let mut ponder = false;
     let mut wtime: Option<u64> = None;
     let mut btime: Option<u64> = None;

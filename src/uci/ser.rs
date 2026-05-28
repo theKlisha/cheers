@@ -91,7 +91,7 @@ pub fn serialize_response(resp: &UciResponse) -> String {
     }
 }
 
-fn serialize_move(m: UciMove) -> String {
+fn serialize_move(m: Move) -> String {
     let file = |f| match f {
         File::A => 'a',
         File::B => 'b',
@@ -130,7 +130,7 @@ fn serialize_move(m: UciMove) -> String {
     s
 }
 
-fn serialize_moves(moves: &[UciMove]) -> String {
+fn serialize_moves(moves: &[Move]) -> String {
     moves
         .iter()
         .map(|&m| serialize_move(m))

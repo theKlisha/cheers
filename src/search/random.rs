@@ -31,7 +31,7 @@ impl RandomSearch {
 
 impl Search for RandomSearch {
     fn search<B: Board, E: Eval>(&mut self, board: &B, _eval: &E) -> Option<Move> {
-        let moves = board.generate_moves();
+        let moves: Vec<Move> = board.move_iter().collect();
         if moves.is_empty() {
             return None;
         }

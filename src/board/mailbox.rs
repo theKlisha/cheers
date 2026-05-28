@@ -1,4 +1,4 @@
-use crate::board::{Board, Color, Kind, Move, Piece};
+use crate::board::{Board, CastlingRights, Color, Fen, Kind, Move, Piece, Promotion, Square};
 
 pub fn sq(file: u8, rank: u8) -> u8 {
     rank * 8 + file
@@ -34,7 +34,7 @@ fn char_to_piece(ch: char) -> Result<Piece, String> {
     let kind = match ch.to_ascii_lowercase() {
         'p' => Kind::Pawn,
         'r' => Kind::Rook,
-        'n' => Kind::Kingt,
+        'n' => Kind::Knight,
         'b' => Kind::Bishop,
         'q' => Kind::Queen,
         'k' => Kind::King,
@@ -47,7 +47,7 @@ fn piece_to_char(piece: Piece) -> char {
     let ch = match piece.1 {
         Kind::Pawn => 'p',
         Kind::Rook => 'r',
-        Kind::Kingt => 'n',
+        Kind::Knight => 'n',
         Kind::Bishop => 'b',
         Kind::Queen => 'q',
         Kind::King => 'k',
@@ -70,34 +70,6 @@ const KNIGHT_JUMPS: [(i8, i8); 8] = [
     (2, -1),
     (2, 1),
 ];
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CastlingRights {
-    pub white_kingside: bool,
-    pub white_queenside: bool,
-    pub black_kingside: bool,
-    pub black_queenside: bool,
-}
-
-impl CastlingRights {
-    pub fn none() -> Self {
-        CastlingRights {
-            white_kingside: false,
-            white_queenside: false,
-            black_kingside: false,
-            black_queenside: false,
-        }
-    }
-
-    pub fn all() -> Self {
-        CastlingRights {
-            white_kingside: true,
-            white_queenside: true,
-            black_kingside: true,
-            black_queenside: true,
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mailbox {
@@ -125,9 +97,13 @@ impl Mailbox {
         self.squares[sq as usize] = piece;
     }
 
+    fn piece_at_idx(&self, sq: u8) -> Option<Piece> {
+        self.squares[sq as usize]
+    }
+
     pub fn find_king(&self, color: Color) -> Option<u8> {
         for i in 0..64u8 {
-            if let Some((c, Kind::King)) = self.piece_at(i) {
+            if let Some((c, Kind::King)) = self.piece_at_idx(i) {
                 if c == color {
                     return Some(i);
                 }
@@ -148,7 +124,7 @@ impl Mailbox {
             let f = tf + df;
             let r = tr + pawn_rank_offset;
             if f >= 0 && f < 8 && r >= 0 && r < 8 {
-                if self.piece_at(sq(f as u8, r as u8)) == Some((by_color, Kind::Pawn)) {
+                if self.piece_at_idx(sq(f as u8, r as u8)) == Some((by_color, Kind::Pawn)) {
                     return true;
                 }
             }
@@ -158,7 +134,7 @@ impl Mailbox {
             let f = tf + df;
             let r = tr + dr;
             if f >= 0 && f < 8 && r >= 0 && r < 8 {
-                if self.piece_at(sq(f as u8, r as u8)) == Some((by_color, Kind::Kingt)) {
+                if self.piece_at_idx(sq(f as u8, r as u8)) == Some((by_color, Kind::Knight)) {
                     return true;
                 }
             }
@@ -172,7 +148,7 @@ impl Mailbox {
                 let f = tf + df;
                 let r = tr + dr;
                 if f >= 0 && f < 8 && r >= 0 && r < 8 {
-                    if self.piece_at(sq(f as u8, r as u8)) == Some((by_color, Kind::King)) {
+                    if self.piece_at_idx(sq(f as u8, r as u8)) == Some((by_color, Kind::King)) {
                         return true;
                     }
                 }
@@ -183,7 +159,7 @@ impl Mailbox {
             let mut f = tf + df;
             let mut r = tr + dr;
             while f >= 0 && f < 8 && r >= 0 && r < 8 {
-                match self.piece_at(sq(f as u8, r as u8)) {
+                match self.piece_at_idx(sq(f as u8, r as u8)) {
                     Some((c, k)) => {
                         if c == by_color && matches!(k, Kind::Bishop | Kind::Queen) {
                             return true;
@@ -201,7 +177,7 @@ impl Mailbox {
             let mut f = tf + df;
             let mut r = tr + dr;
             while f >= 0 && f < 8 && r >= 0 && r < 8 {
-                match self.piece_at(sq(f as u8, r as u8)) {
+                match self.piece_at_idx(sq(f as u8, r as u8)) {
                     Some((c, k)) => {
                         if c == by_color && matches!(k, Kind::Rook | Kind::Queen) {
                             return true;
@@ -238,27 +214,27 @@ impl Mailbox {
         let to_r = r + dir;
         if to_r >= 0 && to_r < 8 {
             let to_sq = sq(f as u8, to_r as u8);
-            if self.piece_at(to_sq).is_none() {
+            if self.piece_at_idx(to_sq).is_none() {
                 if to_r == promo_rank {
-                    for kind in [Kind::Queen, Kind::Rook, Kind::Bishop, Kind::Kingt] {
+                    for kind in [Promotion::Queen, Promotion::Rook, Promotion::Bishop, Promotion::Knight] {
                         moves.push(Move {
-                            from,
-                            to: to_sq,
+                            from: from.into(),
+                            to: to_sq.into(),
                             promotion: Some(kind),
                         });
                     }
                 } else {
                     moves.push(Move {
-                        from,
-                        to: to_sq,
+                        from: from.into(),
+                        to: to_sq.into(),
                         promotion: None,
                     });
                     if r == start_rank {
                         let to_sq2 = sq(f as u8, (r + 2 * dir) as u8);
-                        if self.piece_at(to_sq2).is_none() {
+                        if self.piece_at_idx(to_sq2).is_none() {
                             moves.push(Move {
-                                from,
-                                to: to_sq2,
+                                from: from.into(),
+                                to: to_sq2.into(),
                                 promotion: None,
                             });
                         }
@@ -272,23 +248,23 @@ impl Mailbox {
                     continue;
                 }
                 let cap_sq = sq(cf as u8, to_r as u8);
-                let is_capture = match self.piece_at(cap_sq) {
+                let is_capture = match self.piece_at_idx(cap_sq) {
                     Some((c, _)) => c != color,
                     None => Some(cap_sq) == self.en_passant,
                 };
                 if is_capture {
                     if to_r == promo_rank {
-                        for kind in [Kind::Queen, Kind::Rook, Kind::Bishop, Kind::Kingt] {
+                        for kind in [Promotion::Queen, Promotion::Rook, Promotion::Bishop, Promotion::Knight] {
                             moves.push(Move {
-                                from,
-                                to: cap_sq,
+                                from: from.into(),
+                                to: cap_sq.into(),
                                 promotion: Some(kind),
                             });
                         }
                     } else {
                         moves.push(Move {
-                            from,
-                            to: cap_sq,
+                            from: from.into(),
+                            to: cap_sq.into(),
                             promotion: None,
                         });
                     }
@@ -308,11 +284,11 @@ impl Mailbox {
                 continue;
             }
             let to_sq = sq(tf as u8, tr as u8);
-            match self.piece_at(to_sq) {
+            match self.piece_at_idx(to_sq) {
                 Some((c, _)) if c == color => continue,
                 _ => moves.push(Move {
-                    from,
-                    to: to_sq,
+                    from: from.into(),
+                    to: to_sq.into(),
                     promotion: None,
                 }),
             }
@@ -328,20 +304,20 @@ impl Mailbox {
             let mut tr = r + dr;
             while tf >= 0 && tf < 8 && tr >= 0 && tr < 8 {
                 let to_sq = sq(tf as u8, tr as u8);
-                match self.piece_at(to_sq) {
+                match self.piece_at_idx(to_sq) {
                     Some((c, _)) => {
                         if c != color {
                             moves.push(Move {
-                                from,
-                                to: to_sq,
+                                from: from.into(),
+                                to: to_sq.into(),
                                 promotion: None,
                             });
                         }
                         break;
                     }
                     None => moves.push(Move {
-                        from,
-                        to: to_sq,
+                        from: from.into(),
+                        to: to_sq.into(),
                         promotion: None,
                     }),
                 }
@@ -367,11 +343,11 @@ impl Mailbox {
                     continue;
                 }
                 let to_sq = sq(tf as u8, tr as u8);
-                match self.piece_at(to_sq) {
+                match self.piece_at_idx(to_sq) {
                     Some((c, _)) if c == color => continue,
                     _ => moves.push(Move {
-                        from,
-                        to: to_sq,
+                        from: from.into(),
+                        to: to_sq.into(),
                         promotion: None,
                     }),
                 }
@@ -382,58 +358,58 @@ impl Mailbox {
         match color {
             Color::White => {
                 if self.castling.white_kingside
-                    && self.piece_at(sq(5, 0)).is_none()
-                    && self.piece_at(sq(6, 0)).is_none()
+                    && self.piece_at_idx(sq(5, 0)).is_none()
+                    && self.piece_at_idx(sq(6, 0)).is_none()
                     && !self.is_attacked(sq(4, 0), opp)
                     && !self.is_attacked(sq(5, 0), opp)
                     && !self.is_attacked(sq(6, 0), opp)
                 {
                     moves.push(Move {
-                        from,
-                        to: sq(6, 0),
+                        from: from.into(),
+                        to: sq(6, 0).into(),
                         promotion: None,
                     });
                 }
                 if self.castling.white_queenside
-                    && self.piece_at(sq(3, 0)).is_none()
-                    && self.piece_at(sq(2, 0)).is_none()
-                    && self.piece_at(sq(1, 0)).is_none()
+                    && self.piece_at_idx(sq(3, 0)).is_none()
+                    && self.piece_at_idx(sq(2, 0)).is_none()
+                    && self.piece_at_idx(sq(1, 0)).is_none()
                     && !self.is_attacked(sq(4, 0), opp)
                     && !self.is_attacked(sq(3, 0), opp)
                     && !self.is_attacked(sq(2, 0), opp)
                 {
                     moves.push(Move {
-                        from,
-                        to: sq(2, 0),
+                        from: from.into(),
+                        to: sq(2, 0).into(),
                         promotion: None,
                     });
                 }
             }
             Color::Black => {
                 if self.castling.black_kingside
-                    && self.piece_at(sq(5, 7)).is_none()
-                    && self.piece_at(sq(6, 7)).is_none()
+                    && self.piece_at_idx(sq(5, 7)).is_none()
+                    && self.piece_at_idx(sq(6, 7)).is_none()
                     && !self.is_attacked(sq(4, 7), opp)
                     && !self.is_attacked(sq(5, 7), opp)
                     && !self.is_attacked(sq(6, 7), opp)
                 {
                     moves.push(Move {
-                        from,
-                        to: sq(6, 7),
+                        from: from.into(),
+                        to: sq(6, 7).into(),
                         promotion: None,
                     });
                 }
                 if self.castling.black_queenside
-                    && self.piece_at(sq(3, 7)).is_none()
-                    && self.piece_at(sq(2, 7)).is_none()
-                    && self.piece_at(sq(1, 7)).is_none()
+                    && self.piece_at_idx(sq(3, 7)).is_none()
+                    && self.piece_at_idx(sq(2, 7)).is_none()
+                    && self.piece_at_idx(sq(1, 7)).is_none()
                     && !self.is_attacked(sq(4, 7), opp)
                     && !self.is_attacked(sq(3, 7), opp)
                     && !self.is_attacked(sq(2, 7), opp)
                 {
                     moves.push(Move {
-                        from,
-                        to: sq(2, 7),
+                        from: from.into(),
+                        to: sq(2, 7).into(),
                         promotion: None,
                     });
                 }
@@ -450,22 +426,126 @@ impl Mailbox {
             _ => {}
         }
     }
-}
 
-impl Board for Mailbox {
-    fn startpos() -> Self {
-        Self::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap()
+    pub fn make_move(&mut self, mov: Move) {
+        let from: u8 = mov.from.into();
+        let to: u8 = mov.to.into();
+        let promotion = mov.promotion;
+
+        let piece = match self.piece_at_idx(from) {
+            Some(p) => p,
+            None => return,
+        };
+        let (color, kind) = piece;
+        let is_pawn = matches!(kind, Kind::Pawn);
+        let is_capture =
+            self.piece_at_idx(to).is_some() || (is_pawn && Some(to) == self.en_passant);
+
+        if is_pawn && Some(to) == self.en_passant {
+            let captured_sq = match color {
+                Color::White => to - 8,
+                Color::Black => to + 8,
+            };
+            self.set_piece(captured_sq, None);
+        }
+
+        self.set_piece(from, None);
+        let placed = match promotion {
+            Some(promo) => (color, Kind::from(promo)),
+            None => piece,
+        };
+        self.set_piece(to, Some(placed));
+
+        if matches!(kind, Kind::King) {
+            let diff = to as i8 - from as i8;
+            if diff == 2 {
+                let rook = self.piece_at_idx(from + 3);
+                self.set_piece(from + 3, None);
+                self.set_piece(from + 1, rook);
+            } else if diff == -2 {
+                let rook = self.piece_at_idx(from - 4);
+                self.set_piece(from - 4, None);
+                self.set_piece(from - 1, rook);
+            }
+        }
+
+        self.en_passant = None;
+        if is_pawn {
+            let diff = (to as i8 - from as i8).unsigned_abs();
+            if diff == 16 {
+                self.en_passant = Some((from + to) / 2);
+            }
+        }
+
+        if matches!(kind, Kind::King) {
+            match color {
+                Color::White => {
+                    self.castling.white_kingside = false;
+                    self.castling.white_queenside = false;
+                }
+                Color::Black => {
+                    self.castling.black_kingside = false;
+                    self.castling.black_queenside = false;
+                }
+            }
+        }
+        self.update_castling_for_square(from);
+        self.update_castling_for_square(to);
+
+        if is_pawn || is_capture {
+            self.halfmove_clock = 0;
+        } else {
+            self.halfmove_clock += 1;
+        }
+
+        if matches!(color, Color::Black) {
+            self.fullmove_number += 1;
+        }
+
+        self.side_to_move = self.side_to_move.opposite();
     }
 
-    fn piece_at(&self, sq: u8) -> Option<Piece> {
-        self.squares[sq as usize]
+    pub fn generate_moves(&self) -> Vec<Move> {
+        let mut moves = Vec::new();
+        let us = self.side_to_move;
+
+        for i in 0..64u8 {
+            if let Some((color, kind)) = self.piece_at_idx(i) {
+                if color != us {
+                    continue;
+                }
+                match kind {
+                    Kind::Pawn => self.gen_pawn_moves(i, &mut moves),
+                    Kind::Knight => self.gen_knight_moves(i, &mut moves),
+                    Kind::Bishop => self.gen_sliding_moves(i, &DIAGONALS, &mut moves),
+                    Kind::Rook => self.gen_sliding_moves(i, &ORTHOGONALS, &mut moves),
+                    Kind::Queen => {
+                        self.gen_sliding_moves(i, &DIAGONALS, &mut moves);
+                        self.gen_sliding_moves(i, &ORTHOGONALS, &mut moves);
+                    }
+                    Kind::King => self.gen_king_moves(i, &mut moves),
+                }
+            }
+        }
+
+        moves
+            .into_iter()
+            .filter(|m| {
+                let mut copy = self.clone();
+                copy.make_move(*m);
+                !copy.is_in_check(us)
+            })
+            .collect()
     }
 
-    fn side_to_move(&self) -> Color {
-        self.side_to_move
+    pub fn is_in_check(&self, color: Color) -> bool {
+        match self.find_king(color) {
+            Some(king_sq) => self.is_attacked(king_sq, color.opposite()),
+            None => false,
+        }
     }
 
-    fn from_fen(fen: &str) -> Result<Self, String> {
+    pub fn from_fen(fen: &str) -> Result<Self, String> {
         let parts: Vec<&str> = fen.split_whitespace().collect();
         if parts.len() != 6 {
             return Err(format!("expected 6 FEN fields, got {}", parts.len()));
@@ -523,13 +603,13 @@ impl Board for Mailbox {
         Ok(board)
     }
 
-    fn to_fen(&self) -> String {
+    pub fn to_fen(&self) -> String {
         let mut fen = String::new();
 
         for rank in (0..8u8).rev() {
             let mut empty = 0u8;
             for file in 0..8u8 {
-                match self.piece_at(sq(file, rank)) {
+                match self.piece_at_idx(sq(file, rank)) {
                     Some(piece) => {
                         if empty > 0 {
                             fen.push((b'0' + empty) as char);
@@ -592,122 +672,79 @@ impl Board for Mailbox {
 
         fen
     }
+}
 
-    fn make_move(&mut self, mov: Move) {
-        let from = mov.from;
-        let to = mov.to;
-        let promotion = mov.promotion;
-
-        let piece = match self.piece_at(from) {
-            Some(p) => p,
-            None => return,
-        };
-        let (color, kind) = piece;
-        let is_pawn = matches!(kind, Kind::Pawn);
-        let is_capture = self.piece_at(to).is_some() || (is_pawn && Some(to) == self.en_passant);
-
-        if is_pawn && Some(to) == self.en_passant {
-            let captured_sq = match color {
-                Color::White => to - 8,
-                Color::Black => to + 8,
-            };
-            self.set_piece(captured_sq, None);
+impl From<Fen> for Mailbox {
+    fn from(f: Fen) -> Self {
+        Mailbox {
+            squares: f.squares,
+            side_to_move: f.side_to_move,
+            castling: f.castling,
+            en_passant: f.en_passant.map(u8::from),
+            halfmove_clock: f.halfmove_clock,
+            fullmove_number: f.fullmove_number,
         }
+    }
+}
 
-        self.set_piece(from, None);
-        let placed = match promotion {
-            Some(promo_kind) => (color, promo_kind),
-            None => piece,
-        };
-        self.set_piece(to, Some(placed));
-
-        if matches!(kind, Kind::King) {
-            let diff = to as i8 - from as i8;
-            if diff == 2 {
-                let rook = self.piece_at(from + 3);
-                self.set_piece(from + 3, None);
-                self.set_piece(from + 1, rook);
-            } else if diff == -2 {
-                let rook = self.piece_at(from - 4);
-                self.set_piece(from - 4, None);
-                self.set_piece(from - 1, rook);
-            }
+impl From<Mailbox> for Fen {
+    fn from(m: Mailbox) -> Self {
+        Fen {
+            squares: m.squares,
+            side_to_move: m.side_to_move,
+            castling: m.castling,
+            en_passant: m.en_passant.map(Square::from),
+            halfmove_clock: m.halfmove_clock,
+            fullmove_number: m.fullmove_number,
         }
+    }
+}
 
-        self.en_passant = None;
-        if is_pawn {
-            let diff = (to as i8 - from as i8).unsigned_abs();
-            if diff == 16 {
-                self.en_passant = Some((from + to) / 2);
-            }
-        }
+impl Board for Mailbox {
+    fn from_fen(s: &str) -> Result<Self, String> {
+        Mailbox::from_fen(s)
+    }
 
-        if matches!(kind, Kind::King) {
-            match color {
-                Color::White => {
-                    self.castling.white_kingside = false;
-                    self.castling.white_queenside = false;
-                }
-                Color::Black => {
-                    self.castling.black_kingside = false;
-                    self.castling.black_queenside = false;
-                }
-            }
-        }
-        self.update_castling_for_square(from);
-        self.update_castling_for_square(to);
+    fn move_iter(&self) -> impl Iterator<Item = Move> {
+        self.generate_moves().into_iter()
+    }
 
-        if is_pawn || is_capture {
-            self.halfmove_clock = 0;
+    fn piece_iter(&self) -> impl Iterator<Item = Piece> {
+        self.squares.iter().filter_map(|&p| p)
+    }
+
+    fn piece_at(&self, sq: impl Into<Square>) -> Option<Piece> {
+        let idx: u8 = sq.into().into();
+        self.piece_at_idx(idx)
+    }
+
+    fn turn(&self) -> Color {
+        self.side_to_move
+    }
+
+    fn check(&self) -> Option<Color> {
+        if self.is_in_check(Color::White) {
+            Some(Color::White)
+        } else if self.is_in_check(Color::Black) {
+            Some(Color::Black)
         } else {
-            self.halfmove_clock += 1;
+            None
         }
-
-        if matches!(color, Color::Black) {
-            self.fullmove_number += 1;
-        }
-
-        self.side_to_move = self.side_to_move.opposite();
     }
 
-    fn generate_moves(&self) -> Vec<Move> {
-        let mut moves = Vec::new();
-        let us = self.side_to_move;
-
-        for i in 0..64u8 {
-            if let Some((color, kind)) = self.piece_at(i) {
-                if color != us {
-                    continue;
-                }
-                match kind {
-                    Kind::Pawn => self.gen_pawn_moves(i, &mut moves),
-                    Kind::Kingt => self.gen_knight_moves(i, &mut moves),
-                    Kind::Bishop => self.gen_sliding_moves(i, &DIAGONALS, &mut moves),
-                    Kind::Rook => self.gen_sliding_moves(i, &ORTHOGONALS, &mut moves),
-                    Kind::Queen => {
-                        self.gen_sliding_moves(i, &DIAGONALS, &mut moves);
-                        self.gen_sliding_moves(i, &ORTHOGONALS, &mut moves);
-                    }
-                    Kind::King => self.gen_king_moves(i, &mut moves),
-                }
-            }
+    fn mate(&self) -> Option<Color> {
+        let turn = self.side_to_move;
+        if self.generate_moves().is_empty() && self.is_in_check(turn) {
+            Some(turn)
+        } else {
+            None
         }
-
-        moves
-            .into_iter()
-            .filter(|m| {
-                let mut copy = self.clone();
-                copy.make_move(*m);
-                !copy.is_in_check(us)
-            })
-            .collect()
     }
 
-    fn is_in_check(&self, color: Color) -> bool {
-        match self.find_king(color) {
-            Some(king_sq) => self.is_attacked(king_sq, color.opposite()),
-            None => false,
-        }
+    fn do_move(&self, mov: &Move) -> Self {
+        let mut copy = self.clone();
+        copy.make_move(*mov);
+        copy
     }
 }
 
@@ -737,16 +774,16 @@ mod tests {
 
     fn mv(from: &str, to: &str) -> Move {
         Move {
-            from: parse_square(from).unwrap(),
-            to: parse_square(to).unwrap(),
+            from: parse_square(from).unwrap().into(),
+            to: parse_square(to).unwrap().into(),
             promotion: None,
         }
     }
 
-    fn mvp(from: &str, to: &str, promo: Kind) -> Move {
+    fn mvp(from: &str, to: &str, promo: Promotion) -> Move {
         Move {
-            from: parse_square(from).unwrap(),
-            to: parse_square(to).unwrap(),
+            from: parse_square(from).unwrap().into(),
+            to: parse_square(to).unwrap().into(),
             promotion: Some(promo),
         }
     }
@@ -931,7 +968,7 @@ mod tests {
     #[test]
     fn make_move_promotion() {
         let mut board = Mailbox::from_fen("8/4P3/8/8/8/8/8/4K2k w - - 0 1").unwrap();
-        board.make_move(mvp("e7", "e8", Kind::Queen));
+        board.make_move(mvp("e7", "e8", Promotion::Queen));
         assert_eq!(
             board.piece_at(parse_square("e8").unwrap()),
             Some((Color::White, Kind::Queen))
@@ -942,10 +979,10 @@ mod tests {
     #[test]
     fn make_move_promotion_capture() {
         let mut board = Mailbox::from_fen("3r4/4P3/8/8/8/8/8/4K2k w - - 0 1").unwrap();
-        board.make_move(mvp("e7", "d8", Kind::Kingt));
+        board.make_move(mvp("e7", "d8", Promotion::Knight));
         assert_eq!(
             board.piece_at(parse_square("d8").unwrap()),
-            Some((Color::White, Kind::Kingt))
+            Some((Color::White, Kind::Knight))
         );
     }
 
@@ -1085,10 +1122,10 @@ mod tests {
     fn generate_moves_promotion() {
         let board = Mailbox::from_fen("8/4P3/8/8/8/8/8/4K2k w - - 0 1").unwrap();
         let moves = board.generate_moves();
-        assert!(has_move(&moves, mvp("e7", "e8", Kind::Queen)));
-        assert!(has_move(&moves, mvp("e7", "e8", Kind::Rook)));
-        assert!(has_move(&moves, mvp("e7", "e8", Kind::Bishop)));
-        assert!(has_move(&moves, mvp("e7", "e8", Kind::Kingt)));
+        assert!(has_move(&moves, mvp("e7", "e8", Promotion::Queen)));
+        assert!(has_move(&moves, mvp("e7", "e8", Promotion::Rook)));
+        assert!(has_move(&moves, mvp("e7", "e8", Promotion::Bishop)));
+        assert!(has_move(&moves, mvp("e7", "e8", Promotion::Knight)));
     }
 
     #[test]
