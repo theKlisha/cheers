@@ -1,7 +1,10 @@
 pub mod board;
 pub mod eval;
+pub mod fen;
 pub mod search;
 pub mod uci;
+
+pub use fen::Fen;
 
 use std::sync::mpsc::{Receiver, Sender};
 
@@ -150,15 +153,6 @@ impl CastlingRights {
             black_queenside: true,
         }
     }
-}
-
-pub struct Fen {
-    pub squares: [Option<Piece>; 64],
-    pub side_to_move: Color,
-    pub castling: CastlingRights,
-    pub en_passant: Option<Square>,
-    pub halfmove_clock: u32,
-    pub fullmove_number: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

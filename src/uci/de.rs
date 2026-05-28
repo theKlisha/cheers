@@ -135,8 +135,10 @@ fn deserialize_register_credentials(i: &str) -> IResult<&str, UciRequest> {
 fn deserialize_fen_spec(i: &str) -> IResult<&str, PositionSpec> {
     let (i, _) = tag("fen")(i)?;
     let (i, _) = space1(i)?;
-    let (i, fen) = alt((take_until(" moves"), rest)).parse(i)?;
-    Ok((i, PositionSpec::Fen(fen.to_string())))
+    let (i, fen_str) = alt((take_until(" moves"), rest)).parse(i)?;
+    let fen = Fen::try_from(fen_str.trim_end())
+        .map_err(|_| nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Fail)))?;
+    Ok((i, PositionSpec::Fen(fen)))
 }
 
 fn deserialize_position(i: &str) -> IResult<&str, UciRequest> {

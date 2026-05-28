@@ -127,7 +127,7 @@ fn request_position_startpos_with_moves() {
 fn request_position_fen_no_moves() {
     roundtrip_request(UciRequest::Position {
         start: PositionSpec::Fen(
-            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".to_string(),
+            Fen::try_from("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1").unwrap(),
         ),
         moves: vec![],
     });
@@ -136,7 +136,7 @@ fn request_position_fen_no_moves() {
 #[test]
 fn request_position_fen_with_moves() {
     roundtrip_request(UciRequest::Position {
-        start: PositionSpec::Fen("8/8/8/8/8/8/8/8 w - - 0 1".to_string()),
+        start: PositionSpec::Fen(Fen::try_from("8/8/8/8/8/8/8/8 w - - 0 1").unwrap()),
         moves: vec![mvp(
             sq(File::A, Rank::R7),
             sq(File::A, Rank::R8),

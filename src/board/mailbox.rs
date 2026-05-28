@@ -25,38 +25,6 @@ pub fn parse_square(s: &str) -> Result<u8, String> {
     Ok(sq(file, rank))
 }
 
-fn char_to_piece(ch: char) -> Result<Piece, String> {
-    let color = if ch.is_uppercase() {
-        Color::White
-    } else {
-        Color::Black
-    };
-    let kind = match ch.to_ascii_lowercase() {
-        'p' => Kind::Pawn,
-        'r' => Kind::Rook,
-        'n' => Kind::Knight,
-        'b' => Kind::Bishop,
-        'q' => Kind::Queen,
-        'k' => Kind::King,
-        _ => return Err(format!("invalid piece char: {}", ch)),
-    };
-    Ok((color, kind))
-}
-
-fn piece_to_char(piece: Piece) -> char {
-    let ch = match piece.1 {
-        Kind::Pawn => 'p',
-        Kind::Rook => 'r',
-        Kind::Knight => 'n',
-        Kind::Bishop => 'b',
-        Kind::Queen => 'q',
-        Kind::King => 'k',
-    };
-    match piece.0 {
-        Color::White => ch.to_ascii_uppercase(),
-        Color::Black => ch,
-    }
-}
 
 const DIAGONALS: [(i8, i8); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
 const ORTHOGONALS: [(i8, i8); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
@@ -546,131 +514,11 @@ impl Mailbox {
     }
 
     pub fn from_fen(fen: &str) -> Result<Self, String> {
-        let parts: Vec<&str> = fen.split_whitespace().collect();
-        if parts.len() != 6 {
-            return Err(format!("expected 6 FEN fields, got {}", parts.len()));
-        }
-
-        let mut board = Self::empty();
-
-        let mut rank: u8 = 7;
-        let mut file: u8 = 0;
-        for ch in parts[0].chars() {
-            match ch {
-                '/' => {
-                    if file != 8 {
-                        return Err(format!("rank {} has {} files", rank + 1, file));
-                    }
-                    rank = rank.checked_sub(1).ok_or("too many ranks")?;
-                    file = 0;
-                }
-                '1'..='8' => {
-                    file += ch as u8 - b'0';
-                }
-                _ => {
-                    let piece = char_to_piece(ch)?;
-                    board.set_piece(sq(file, rank), Some(piece));
-                    file += 1;
-                }
-            }
-        }
-
-        board.side_to_move = match parts[1] {
-            "w" => Color::White,
-            "b" => Color::Black,
-            other => return Err(format!("invalid side: {}", other)),
-        };
-
-        if parts[2] != "-" {
-            for ch in parts[2].chars() {
-                match ch {
-                    'K' => board.castling.white_kingside = true,
-                    'Q' => board.castling.white_queenside = true,
-                    'k' => board.castling.black_kingside = true,
-                    'q' => board.castling.black_queenside = true,
-                    other => return Err(format!("invalid castling char: {}", other)),
-                }
-            }
-        }
-
-        if parts[3] != "-" {
-            board.en_passant = Some(parse_square(parts[3])?);
-        }
-
-        board.halfmove_clock = parts[4].parse().map_err(|_| "invalid halfmove clock")?;
-        board.fullmove_number = parts[5].parse().map_err(|_| "invalid fullmove number")?;
-
-        Ok(board)
+        Fen::try_from(fen).map(Mailbox::from)
     }
 
     pub fn to_fen(&self) -> String {
-        let mut fen = String::new();
-
-        for rank in (0..8u8).rev() {
-            let mut empty = 0u8;
-            for file in 0..8u8 {
-                match self.piece_at_idx(sq(file, rank)) {
-                    Some(piece) => {
-                        if empty > 0 {
-                            fen.push((b'0' + empty) as char);
-                            empty = 0;
-                        }
-                        fen.push(piece_to_char(piece));
-                    }
-                    None => empty += 1,
-                }
-            }
-            if empty > 0 {
-                fen.push((b'0' + empty) as char);
-            }
-            if rank > 0 {
-                fen.push('/');
-            }
-        }
-
-        fen.push(' ');
-        fen.push(match self.side_to_move {
-            Color::White => 'w',
-            Color::Black => 'b',
-        });
-
-        fen.push(' ');
-        let mut any = false;
-        if self.castling.white_kingside {
-            fen.push('K');
-            any = true;
-        }
-        if self.castling.white_queenside {
-            fen.push('Q');
-            any = true;
-        }
-        if self.castling.black_kingside {
-            fen.push('k');
-            any = true;
-        }
-        if self.castling.black_queenside {
-            fen.push('q');
-            any = true;
-        }
-        if !any {
-            fen.push('-');
-        }
-
-        fen.push(' ');
-        match self.en_passant {
-            Some(ep) => {
-                fen.push((b'a' + file_of(ep)) as char);
-                fen.push((b'1' + rank_of(ep)) as char);
-            }
-            None => fen.push('-'),
-        }
-
-        fen.push(' ');
-        fen.push_str(&self.halfmove_clock.to_string());
-        fen.push(' ');
-        fen.push_str(&self.fullmove_number.to_string());
-
-        fen
+        Fen::from(self.clone()).to_string()
     }
 }
 

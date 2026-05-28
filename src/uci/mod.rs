@@ -1,4 +1,4 @@
-pub use crate::{File, Move, Promotion, Rank, Square};
+pub use crate::{Fen, File, Move, Promotion, Rank, Square};
 
 use crate::uci::{
     de::{deserialize_request, deserialize_response},
@@ -10,7 +10,7 @@ pub mod ser;
 pub mod stdio;
 
 #[cfg(test)]
-mod mod_tests;
+mod tests;
 
 impl From<&UciResponse> for String {
     fn from(resp: &UciResponse) -> String {
@@ -52,7 +52,7 @@ pub enum RegisterCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PositionSpec {
     StartPos,
-    Fen(String),
+    Fen(Fen),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
