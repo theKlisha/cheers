@@ -7,7 +7,6 @@ macro_rules! fen {
 macro_rules! board_tests {
     ($name:ident, $board:ty) => {
         mod $name {
-            use super::*;
             use $crate::{Board, Color, Fen, File, Kind, Move, Promotion, Rank, SquareName as Sq};
 
             fn kiwipete() -> Fen {
@@ -364,5 +363,5 @@ macro_rules! board_tests {
     };
 }
 
-use super::mailbox::Mailbox;
-board_tests!(mailbox, Mailbox);
+board_tests!(mailbox, crate::board::mailbox::Mailbox);
+board_tests!(bitboard, crate::board::bitboard::Bitboard);
