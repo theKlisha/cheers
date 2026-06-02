@@ -80,10 +80,29 @@ pub enum Rank {
     R8,
 }
 
+#[rustfmt::skip]
+#[allow(dead_code)]
+pub enum SquareName {
+    A1, B1, C1, D1, E1, F1, G1, H1,
+    A2, B2, C2, D2, E2, F2, G2, H2,
+    A3, B3, C3, D3, E3, F3, G3, H3,
+    A4, B4, C4, D4, E4, F4, G4, H4,
+    A5, B5, C5, D5, E5, F5, G5, H5,
+    A6, B6, C6, D6, E6, F6, G6, H6,
+    A7, B7, C7, D7, E7, F7, G7, H7,
+    A8, B8, C8, D8, E8, F8, G8, H8,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Square {
     pub file: File,
     pub rank: Rank,
+}
+
+impl From<SquareName> for Square {
+    fn from(value: SquareName) -> Self {
+        (value as u8).into()
+    }
 }
 
 impl From<(File, Rank)> for Square {
@@ -162,24 +181,50 @@ pub struct Move {
     pub promotion: Option<Promotion>,
 }
 
-pub trait Board: Clone + From<Fen> + Into<Fen> {
-    fn from_fen(s: &str) -> Result<Self, String>
-    where
-        Self: Sized;
-    fn startpos() -> Self
-    where
-        Self: Sized,
-    {
-        Self::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-            .expect("startpos is always valid")
+impl<A, B> From<(A, B)> for Move
+where
+    A: Into<Square>,
+    B: Into<Square>,
+{
+    fn from(value: (A, B)) -> Self {
+        Self {
+            from: value.0.into(),
+            to: value.1.into(),
+            promotion: None,
+        }
     }
+}
+
+impl<A, B> From<(A, B, Promotion)> for Move
+where
+    A: Into<Square>,
+    B: Into<Square>,
+{
+    fn from(value: (A, B, Promotion)) -> Self {
+        Self {
+            from: value.0.into(),
+            to: value.1.into(),
+            promotion: Some(value.2),
+        }
+    }
+}
+
+pub trait Board: Clone {
     fn move_iter(&self) -> impl Iterator<Item = Move>;
     fn piece_iter(&self) -> impl Iterator<Item = Piece>;
     fn piece_at(&self, sq: impl Into<Square>) -> Option<Piece>;
     fn turn(&self) -> Color;
     fn check(&self) -> Option<Color>;
     fn mate(&self) -> Option<Color>;
-    fn do_move(&self, mov: &Move) -> Self;
+    fn do_move(&self, mov: impl Into<Move>) -> Self;
+
+    fn fen(&self) -> Fen;
+
+    fn from_fen(s: &Fen) -> Self;
+
+    fn startpos() -> Self {
+        Self::from_fen(&Fen::startpos())
+    }
 }
 
 pub trait Eval {

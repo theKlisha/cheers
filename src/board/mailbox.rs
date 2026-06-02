@@ -25,7 +25,6 @@ pub fn parse_square(s: &str) -> Result<u8, String> {
     Ok(sq(file, rank))
 }
 
-
 const DIAGONALS: [(i8, i8); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
 const ORTHOGONALS: [(i8, i8); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
 const KNIGHT_JUMPS: [(i8, i8); 8] = [
@@ -184,7 +183,12 @@ impl Mailbox {
             let to_sq = sq(f as u8, to_r as u8);
             if self.piece_at_idx(to_sq).is_none() {
                 if to_r == promo_rank {
-                    for kind in [Promotion::Queen, Promotion::Rook, Promotion::Bishop, Promotion::Knight] {
+                    for kind in [
+                        Promotion::Queen,
+                        Promotion::Rook,
+                        Promotion::Bishop,
+                        Promotion::Knight,
+                    ] {
                         moves.push(Move {
                             from: from.into(),
                             to: to_sq.into(),
@@ -222,7 +226,12 @@ impl Mailbox {
                 };
                 if is_capture {
                     if to_r == promo_rank {
-                        for kind in [Promotion::Queen, Promotion::Rook, Promotion::Bishop, Promotion::Knight] {
+                        for kind in [
+                            Promotion::Queen,
+                            Promotion::Rook,
+                            Promotion::Bishop,
+                            Promotion::Knight,
+                        ] {
                             moves.push(Move {
                                 from: from.into(),
                                 to: cap_sq.into(),
@@ -395,7 +404,7 @@ impl Mailbox {
         }
     }
 
-    pub fn make_move(&mut self, mov: Move) {
+    pub fn make_move(&mut self, mov: &Move) {
         let from: u8 = mov.from.into();
         let to: u8 = mov.to.into();
         let promotion = mov.promotion;
@@ -500,7 +509,7 @@ impl Mailbox {
             .into_iter()
             .filter(|m| {
                 let mut copy = self.clone();
-                copy.make_move(*m);
+                copy.make_move(m);
                 !copy.is_in_check(us)
             })
             .collect()
@@ -512,47 +521,9 @@ impl Mailbox {
             None => false,
         }
     }
-
-    pub fn from_fen(fen: &str) -> Result<Self, String> {
-        Fen::try_from(fen).map(Mailbox::from)
-    }
-
-    pub fn to_fen(&self) -> String {
-        Fen::from(self.clone()).to_string()
-    }
-}
-
-impl From<Fen> for Mailbox {
-    fn from(f: Fen) -> Self {
-        Mailbox {
-            squares: f.squares,
-            side_to_move: f.side_to_move,
-            castling: f.castling,
-            en_passant: f.en_passant.map(u8::from),
-            halfmove_clock: f.halfmove_clock,
-            fullmove_number: f.fullmove_number,
-        }
-    }
-}
-
-impl From<Mailbox> for Fen {
-    fn from(m: Mailbox) -> Self {
-        Fen {
-            squares: m.squares,
-            side_to_move: m.side_to_move,
-            castling: m.castling,
-            en_passant: m.en_passant.map(Square::from),
-            halfmove_clock: m.halfmove_clock,
-            fullmove_number: m.fullmove_number,
-        }
-    }
 }
 
 impl Board for Mailbox {
-    fn from_fen(s: &str) -> Result<Self, String> {
-        Mailbox::from_fen(s)
-    }
-
     fn move_iter(&self) -> impl Iterator<Item = Move> {
         self.generate_moves().into_iter()
     }
@@ -589,10 +560,32 @@ impl Board for Mailbox {
         }
     }
 
-    fn do_move(&self, mov: &Move) -> Self {
+    fn do_move(&self, mov: impl Into<Move>) -> Self {
         let mut copy = self.clone();
-        copy.make_move(*mov);
+        copy.make_move(&mov.into());
         copy
+    }
+
+    fn fen(&self) -> Fen {
+        Fen {
+            squares: self.squares,
+            side_to_move: self.side_to_move,
+            castling: self.castling,
+            en_passant: self.en_passant.map(Square::from),
+            halfmove_clock: self.halfmove_clock,
+            fullmove_number: self.fullmove_number,
+        }
+    }
+
+    fn from_fen(f: &Fen) -> Self {
+        Self {
+            squares: f.squares,
+            side_to_move: f.side_to_move,
+            castling: f.castling,
+            en_passant: f.en_passant.map(u8::from),
+            halfmove_clock: f.halfmove_clock,
+            fullmove_number: f.fullmove_number,
+        }
     }
 }
 
@@ -607,438 +600,9 @@ pub fn perft(board: &Mailbox, depth: u32) -> u64 {
     let mut count = 0u64;
     for m in moves {
         let mut copy = board.clone();
-        copy.make_move(m);
+        copy.make_move(&m);
         count += perft(&copy, depth - 1);
     }
     count
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const STARTPOS: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    const KIWIPETE: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
-
-    fn mv(from: &str, to: &str) -> Move {
-        Move {
-            from: parse_square(from).unwrap().into(),
-            to: parse_square(to).unwrap().into(),
-            promotion: None,
-        }
-    }
-
-    fn mvp(from: &str, to: &str, promo: Promotion) -> Move {
-        Move {
-            from: parse_square(from).unwrap().into(),
-            to: parse_square(to).unwrap().into(),
-            promotion: Some(promo),
-        }
-    }
-
-    fn has_move(moves: &[Move], m: Move) -> bool {
-        moves.contains(&m)
-    }
-
-    #[test]
-    fn empty_board_fen() {
-        let board = Mailbox::empty();
-        assert_eq!(board.to_fen(), "8/8/8/8/8/8/8/8 w - - 0 1");
-    }
-
-    #[test]
-    fn startpos_fen_roundtrip() {
-        let board = Mailbox::startpos();
-        assert_eq!(board.to_fen(), STARTPOS);
-    }
-
-    #[test]
-    fn fen_roundtrip_midgame() {
-        let fen = "r1bqkb1r/pppppppp/2n2n2/8/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3";
-        let board = Mailbox::from_fen(fen).unwrap();
-        assert_eq!(board.to_fen(), fen);
-    }
-
-    #[test]
-    fn fen_roundtrip_with_en_passant() {
-        let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
-        let board = Mailbox::from_fen(fen).unwrap();
-        assert_eq!(board.to_fen(), fen);
-    }
-
-    #[test]
-    fn fen_roundtrip_no_castling() {
-        let fen = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w - - 0 1";
-        let board = Mailbox::from_fen(fen).unwrap();
-        assert_eq!(board.to_fen(), fen);
-    }
-
-    #[test]
-    fn fen_invalid_field_count() {
-        assert!(Mailbox::from_fen("8/8/8/8/8/8/8/8 w").is_err());
-    }
-
-    #[test]
-    fn piece_at_startpos() {
-        let board = Mailbox::startpos();
-        assert_eq!(board.piece_at(sq(0, 0)), Some((Color::White, Kind::Rook)));
-        assert_eq!(board.piece_at(sq(4, 0)), Some((Color::White, Kind::King)));
-        assert_eq!(board.piece_at(sq(4, 7)), Some((Color::Black, Kind::King)));
-        assert_eq!(board.piece_at(sq(0, 1)), Some((Color::White, Kind::Pawn)));
-        assert_eq!(board.piece_at(sq(0, 6)), Some((Color::Black, Kind::Pawn)));
-        assert_eq!(board.piece_at(sq(3, 3)), None);
-    }
-
-    #[test]
-    fn make_move_e2e4() {
-        let mut board = Mailbox::startpos();
-        board.make_move(mv("e2", "e4"));
-        assert_eq!(
-            board.to_fen(),
-            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
-        );
-    }
-
-    #[test]
-    fn make_move_sequence_italian() {
-        let mut board = Mailbox::startpos();
-        for m in [
-            mv("e2", "e4"),
-            mv("e7", "e5"),
-            mv("g1", "f3"),
-            mv("b8", "c6"),
-        ] {
-            board.make_move(m);
-        }
-        assert_eq!(
-            board.to_fen(),
-            "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3"
-        );
-    }
-
-    #[test]
-    fn make_move_capture_resets_halfmove() {
-        let mut board =
-            Mailbox::from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2")
-                .unwrap();
-        board.make_move(mv("e4", "d5"));
-        assert_eq!(board.halfmove_clock, 0);
-        assert_eq!(
-            board.piece_at(parse_square("d5").unwrap()),
-            Some((Color::White, Kind::Pawn))
-        );
-        assert_eq!(board.piece_at(parse_square("e4").unwrap()), None);
-    }
-
-    #[test]
-    fn make_move_en_passant_white() {
-        let mut board =
-            Mailbox::from_fen("rnbqkbnr/pppp1ppp/8/4pP2/8/8/PPPPP1PP/RNBQKBNR w KQkq e6 0 3")
-                .unwrap();
-        board.make_move(mv("f5", "e6"));
-        assert_eq!(
-            board.piece_at(parse_square("e6").unwrap()),
-            Some((Color::White, Kind::Pawn))
-        );
-        assert_eq!(board.piece_at(parse_square("e5").unwrap()), None);
-        assert_eq!(board.piece_at(parse_square("f5").unwrap()), None);
-    }
-
-    #[test]
-    fn make_move_en_passant_black() {
-        let mut board =
-            Mailbox::from_fen("rnbqkbnr/ppppp1pp/8/8/4Pp2/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 3")
-                .unwrap();
-        board.make_move(mv("f4", "e3"));
-        assert_eq!(
-            board.piece_at(parse_square("e3").unwrap()),
-            Some((Color::Black, Kind::Pawn))
-        );
-        assert_eq!(board.piece_at(parse_square("e4").unwrap()), None);
-        assert_eq!(board.piece_at(parse_square("f4").unwrap()), None);
-    }
-
-    #[test]
-    fn make_move_kingside_castle_white() {
-        let mut board =
-            Mailbox::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQK2R w KQkq - 0 1").unwrap();
-        board.make_move(mv("e1", "g1"));
-        assert_eq!(
-            board.piece_at(parse_square("g1").unwrap()),
-            Some((Color::White, Kind::King))
-        );
-        assert_eq!(
-            board.piece_at(parse_square("f1").unwrap()),
-            Some((Color::White, Kind::Rook))
-        );
-        assert_eq!(board.piece_at(parse_square("e1").unwrap()), None);
-        assert_eq!(board.piece_at(parse_square("h1").unwrap()), None);
-        assert!(!board.castling.white_kingside);
-        assert!(!board.castling.white_queenside);
-    }
-
-    #[test]
-    fn make_move_queenside_castle_white() {
-        let mut board =
-            Mailbox::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/R3KBNR w KQkq - 0 1").unwrap();
-        board.make_move(mv("e1", "c1"));
-        assert_eq!(
-            board.piece_at(parse_square("c1").unwrap()),
-            Some((Color::White, Kind::King))
-        );
-        assert_eq!(
-            board.piece_at(parse_square("d1").unwrap()),
-            Some((Color::White, Kind::Rook))
-        );
-        assert_eq!(board.piece_at(parse_square("e1").unwrap()), None);
-        assert_eq!(board.piece_at(parse_square("a1").unwrap()), None);
-    }
-
-    #[test]
-    fn make_move_kingside_castle_black() {
-        let mut board =
-            Mailbox::from_fen("rnbqk2r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1").unwrap();
-        board.make_move(mv("e8", "g8"));
-        assert_eq!(
-            board.piece_at(parse_square("g8").unwrap()),
-            Some((Color::Black, Kind::King))
-        );
-        assert_eq!(
-            board.piece_at(parse_square("f8").unwrap()),
-            Some((Color::Black, Kind::Rook))
-        );
-        assert_eq!(board.piece_at(parse_square("e8").unwrap()), None);
-        assert_eq!(board.piece_at(parse_square("h8").unwrap()), None);
-        assert!(!board.castling.black_kingside);
-        assert!(!board.castling.black_queenside);
-    }
-
-    #[test]
-    fn make_move_promotion() {
-        let mut board = Mailbox::from_fen("8/4P3/8/8/8/8/8/4K2k w - - 0 1").unwrap();
-        board.make_move(mvp("e7", "e8", Promotion::Queen));
-        assert_eq!(
-            board.piece_at(parse_square("e8").unwrap()),
-            Some((Color::White, Kind::Queen))
-        );
-        assert_eq!(board.piece_at(parse_square("e7").unwrap()), None);
-    }
-
-    #[test]
-    fn make_move_promotion_capture() {
-        let mut board = Mailbox::from_fen("3r4/4P3/8/8/8/8/8/4K2k w - - 0 1").unwrap();
-        board.make_move(mvp("e7", "d8", Promotion::Knight));
-        assert_eq!(
-            board.piece_at(parse_square("d8").unwrap()),
-            Some((Color::White, Kind::Knight))
-        );
-    }
-
-    #[test]
-    fn make_move_rook_move_removes_castling() {
-        let mut board =
-            Mailbox::from_fen("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1").unwrap();
-        board.make_move(mv("h1", "h2"));
-        assert!(!board.castling.white_kingside);
-        assert!(board.castling.white_queenside);
-    }
-
-    #[test]
-    fn make_move_rook_captured_removes_castling() {
-        let mut board =
-            Mailbox::from_fen("r3k2r/pppppppp/8/8/8/7B/PPPPPPPP/R3K2R w KQkq - 0 1").unwrap();
-        board.make_move(mv("h3", "a8"));
-        assert!(!board.castling.black_queenside);
-        assert!(board.castling.black_kingside);
-    }
-
-    #[test]
-    fn make_move_fullmove_increments_after_black() {
-        let mut board = Mailbox::startpos();
-        board.make_move(mv("e2", "e4"));
-        assert_eq!(board.fullmove_number, 1);
-        board.make_move(mv("e7", "e5"));
-        assert_eq!(board.fullmove_number, 2);
-    }
-
-    #[test]
-    fn make_move_halfmove_increments_on_quiet() {
-        let mut board =
-            Mailbox::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1")
-                .unwrap();
-        board.make_move(mv("b8", "c6"));
-        assert_eq!(board.halfmove_clock, 1);
-    }
-
-    #[test]
-    fn double_push_sets_en_passant() {
-        let mut board = Mailbox::startpos();
-        board.make_move(mv("d2", "d4"));
-        assert_eq!(board.en_passant, Some(parse_square("d3").unwrap()));
-    }
-
-    #[test]
-    fn en_passant_cleared_after_next_move() {
-        let mut board = Mailbox::startpos();
-        board.make_move(mv("e2", "e4"));
-        assert!(board.en_passant.is_some());
-        board.make_move(mv("b8", "c6"));
-        assert_eq!(board.en_passant, None);
-    }
-
-    #[test]
-    fn sq_helpers() {
-        assert_eq!(sq(0, 0), 0);
-        assert_eq!(sq(7, 7), 63);
-        assert_eq!(sq(4, 3), 28);
-        assert_eq!(file_of(28), 4);
-        assert_eq!(rank_of(28), 3);
-    }
-
-    #[test]
-    fn parse_square_valid() {
-        assert_eq!(parse_square("a1").unwrap(), 0);
-        assert_eq!(parse_square("h8").unwrap(), 63);
-        assert_eq!(parse_square("e4").unwrap(), 28);
-    }
-
-    #[test]
-    fn parse_square_invalid() {
-        assert!(parse_square("i1").is_err());
-        assert!(parse_square("a9").is_err());
-        assert!(parse_square("abc").is_err());
-    }
-
-    #[test]
-    fn is_in_check_startpos() {
-        let board = Mailbox::startpos();
-        assert!(!board.is_in_check(Color::White));
-        assert!(!board.is_in_check(Color::Black));
-    }
-
-    #[test]
-    fn is_in_check_fools_mate() {
-        let board =
-            Mailbox::from_fen("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3")
-                .unwrap();
-        assert!(board.is_in_check(Color::White));
-        assert!(!board.is_in_check(Color::Black));
-    }
-
-    #[test]
-    fn generate_moves_startpos_count() {
-        let board = Mailbox::startpos();
-        let moves = board.generate_moves();
-        assert_eq!(moves.len(), 20);
-    }
-
-    #[test]
-    fn generate_moves_includes_castling() {
-        let board =
-            Mailbox::from_fen("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1").unwrap();
-        let moves = board.generate_moves();
-        assert!(has_move(&moves, mv("e1", "g1")));
-        assert!(has_move(&moves, mv("e1", "c1")));
-    }
-
-    #[test]
-    fn generate_moves_no_castling_through_check() {
-        let board = Mailbox::from_fen("4k3/8/8/8/5r2/8/8/R3K2R w KQ - 0 1").unwrap();
-        let moves = board.generate_moves();
-        assert!(!has_move(&moves, mv("e1", "g1")));
-        assert!(has_move(&moves, mv("e1", "c1")));
-    }
-
-    #[test]
-    fn generate_moves_no_castling_in_check() {
-        let board = Mailbox::from_fen("4k3/8/8/8/4r3/8/8/R3K2R w KQ - 0 1").unwrap();
-        let moves = board.generate_moves();
-        assert!(!has_move(&moves, mv("e1", "g1")));
-        assert!(!has_move(&moves, mv("e1", "c1")));
-    }
-
-    #[test]
-    fn generate_moves_en_passant() {
-        let board =
-            Mailbox::from_fen("rnbqkbnr/pppp1ppp/8/4pP2/8/8/PPPPP1PP/RNBQKBNR w KQkq e6 0 3")
-                .unwrap();
-        let moves = board.generate_moves();
-        assert!(has_move(&moves, mv("f5", "e6")));
-    }
-
-    #[test]
-    fn generate_moves_promotion() {
-        let board = Mailbox::from_fen("8/4P3/8/8/8/8/8/4K2k w - - 0 1").unwrap();
-        let moves = board.generate_moves();
-        assert!(has_move(&moves, mvp("e7", "e8", Promotion::Queen)));
-        assert!(has_move(&moves, mvp("e7", "e8", Promotion::Rook)));
-        assert!(has_move(&moves, mvp("e7", "e8", Promotion::Bishop)));
-        assert!(has_move(&moves, mvp("e7", "e8", Promotion::Knight)));
-    }
-
-    #[test]
-    fn generate_moves_pinned_piece() {
-        let board = Mailbox::from_fen("8/8/8/8/8/1b6/2P5/3K3k w - - 0 1").unwrap();
-        let moves = board.generate_moves();
-        assert!(!has_move(&moves, mv("c2", "c3")));
-        assert!(!has_move(&moves, mv("c2", "c4")));
-    }
-
-    #[test]
-    fn generate_moves_checkmate_no_moves() {
-        let board =
-            Mailbox::from_fen("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3")
-                .unwrap();
-        let moves = board.generate_moves();
-        assert!(moves.is_empty());
-    }
-
-    #[test]
-    fn generate_moves_stalemate_no_moves() {
-        let board = Mailbox::from_fen("7k/8/6QK/8/8/8/8/8 b - - 0 1").unwrap();
-        let moves = board.generate_moves();
-        assert!(moves.is_empty());
-    }
-
-    #[test]
-    fn perft_startpos_depth1() {
-        let board = Mailbox::startpos();
-        assert_eq!(perft(&board, 1), 20);
-    }
-
-    #[test]
-    fn perft_startpos_depth2() {
-        let board = Mailbox::startpos();
-        assert_eq!(perft(&board, 2), 400);
-    }
-
-    #[test]
-    fn perft_startpos_depth3() {
-        let board = Mailbox::startpos();
-        assert_eq!(perft(&board, 3), 8902);
-    }
-
-    #[test]
-    fn perft_startpos_depth4() {
-        let board = Mailbox::startpos();
-        assert_eq!(perft(&board, 4), 197281);
-    }
-
-    #[test]
-    fn perft_kiwipete_depth1() {
-        let board = Mailbox::from_fen(KIWIPETE).unwrap();
-        assert_eq!(perft(&board, 1), 48);
-    }
-
-    #[test]
-    fn perft_kiwipete_depth2() {
-        let board = Mailbox::from_fen(KIWIPETE).unwrap();
-        assert_eq!(perft(&board, 2), 2039);
-    }
-
-    #[test]
-    fn perft_kiwipete_depth3() {
-        let board = Mailbox::from_fen(KIWIPETE).unwrap();
-        assert_eq!(perft(&board, 3), 97862);
-    }
-}

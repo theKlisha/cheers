@@ -112,10 +112,9 @@ fn fen_castling(i: &str) -> IResult<&str, CastlingRights> {
 fn fen_en_passant(i: &str) -> IResult<&str, Option<Square>> {
     alt((
         value(None, tag("-")),
-        map(
-            pair(one_of("abcdefgh"), one_of("12345678")),
-            |(f, r)| Some(Square::from((r as u8 - b'1') * 8 + (f as u8 - b'a'))),
-        ),
+        map(pair(one_of("abcdefgh"), one_of("12345678")), |(f, r)| {
+            Some(Square::from((r as u8 - b'1') * 8 + (f as u8 - b'a')))
+        }),
     ))
     .parse(i)
 }
@@ -123,11 +122,8 @@ fn fen_en_passant(i: &str) -> IResult<&str, Option<Square>> {
 fn parse_fen_str(i: &str) -> IResult<&str, Fen> {
     let (i, squares) = fen_pieces(i)?;
     let (i, _) = space1(i)?;
-    let (i, side_to_move) = alt((
-        value(Color::White, tag("w")),
-        value(Color::Black, tag("b")),
-    ))
-    .parse(i)?;
+    let (i, side_to_move) =
+        alt((value(Color::White, tag("w")), value(Color::Black, tag("b")))).parse(i)?;
     let (i, _) = space1(i)?;
     let (i, castling) = fen_castling(i)?;
     let (i, _) = space1(i)?;
@@ -157,6 +153,18 @@ pub struct Fen {
     pub en_passant: Option<Square>,
     pub halfmove_clock: u32,
     pub fullmove_number: u32,
+}
+
+impl Fen {
+    pub fn parse(s: &str) -> Result<Self, String> {
+        parse_fen_str(s)
+            .map(|(_, fen)| fen)
+            .map_err(|e| e.to_string())
+    }
+
+    pub fn startpos() -> Self {
+        Fen::try_from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap()
+    }
 }
 
 impl TryFrom<&str> for Fen {

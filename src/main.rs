@@ -66,9 +66,9 @@ where
                     UciRequest::Position { start, moves } => {
                         board = match start {
                             PositionSpec::StartPos => B::startpos(),
-                            PositionSpec::Fen(fen) => B::from(fen),
+                            PositionSpec::Fen(fen) => B::from_fen(&fen),
                         };
-                        for uci_mov in &moves {
+                        for uci_mov in moves {
                             board = board.do_move(uci_mov);
                         }
                     }

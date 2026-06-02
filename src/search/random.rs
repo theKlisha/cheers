@@ -41,6 +41,7 @@ impl Search for RandomSearch {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Fen;
     use crate::board::mailbox::Mailbox;
     use crate::eval::static_eval::StaticEval;
 
@@ -59,9 +60,9 @@ mod tests {
     fn returns_none_on_checkmate() {
         let mut search = RandomSearch::new(12345);
         let eval = StaticEval::new(0);
-        let board =
-            Mailbox::from_fen("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3")
-                .unwrap();
+        let fen =
+            Fen::parse("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3").unwrap();
+        let board = Mailbox::from_fen(&fen);
         assert_eq!(search.search(&board, &eval), None);
     }
 
